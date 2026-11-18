@@ -1,20 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 计数大卡 4×2：严格按原型 .weekcard / .weektabs / .wk-big / .wk-sub / .strip 的 px 值 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/week_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:paddingLeft="18dp"
-    android:paddingTop="16dp"
-    android:paddingRight="18dp"
-    android:paddingBottom="14dp"
+    android:paddingLeft="14dp"
+    android:paddingTop="12dp"
+    android:paddingRight="14dp"
+    android:paddingBottom="11dp"
     android:background="@drawable/bg_week">
 
-    <!-- 四个项目胶囊（原型 .weektabs：11px、padding 6、gap 5、mb 8） -->
+    <!-- .weektabs：gap 5、mb 8；按钮 11px / padding 6px 0 / 圆角 999 -->
     <LinearLayout
         android:id="@+id/week_tabs"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"
         android:orientation="horizontal">
 
         <TextView
@@ -22,10 +24,11 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
+            android:background="@drawable/bg_weektab_off"
             android:gravity="center"
-            android:paddingTop="7dp"
-            android:paddingBottom="7dp"
-            android:textSize="15sp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
+            android:textSize="11sp"
             android:textStyle="bold"
             android:includeFontPadding="false"
             android:singleLine="true"
@@ -37,10 +40,11 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:layout_marginLeft="5dp"
+            android:background="@drawable/bg_weektab_off"
             android:gravity="center"
-            android:paddingTop="7dp"
-            android:paddingBottom="7dp"
-            android:textSize="15sp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
+            android:textSize="11sp"
             android:textStyle="bold"
             android:includeFontPadding="false"
             android:singleLine="true"
@@ -52,10 +56,11 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:layout_marginLeft="5dp"
+            android:background="@drawable/bg_weektab_off"
             android:gravity="center"
-            android:paddingTop="7dp"
-            android:paddingBottom="7dp"
-            android:textSize="15sp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
+            android:textSize="11sp"
             android:textStyle="bold"
             android:includeFontPadding="false"
             android:singleLine="true"
@@ -67,30 +72,29 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:layout_marginLeft="5dp"
+            android:background="@drawable/bg_weektab_off"
             android:gravity="center"
-            android:paddingTop="7dp"
-            android:paddingBottom="7dp"
-            android:textSize="15sp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
+            android:textSize="11sp"
             android:textStyle="bold"
             android:includeFontPadding="false"
             android:singleLine="true"
             android:textColor="#6E58BE" />
     </LinearLayout>
 
-
-    <!-- 今日总量（原型 .wk-big .v 32px / .u 11.5px） -->
+    <!-- .wk-big：v 32px / u 11.5px -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:gravity="bottom"
-        android:layout_marginTop="11dp">
+        android:gravity="bottom">
 
         <TextView
             android:id="@+id/week_val"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textSize="38sp"
+            android:textSize="32sp"
             android:textStyle="bold"
             android:textColor="#2B2338"
             android:includeFontPadding="false"
@@ -100,76 +104,83 @@
             android:id="@+id/week_unit"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginLeft="4dp"
-            android:layout_marginBottom="2dp"
-            android:textSize="15sp"
+            android:layout_marginLeft="5dp"
+            android:layout_marginBottom="1dp"
+            android:textSize="11.5sp"
+            android:textStyle="bold"
             android:includeFontPadding="false"
             android:textColor="#6E6079"
             android:singleLine="true" />
     </LinearLayout>
 
-    <!-- 副标题（原型 .wk-sub 10.5px、mt 6） -->
+    <!-- .wk-sub 10.5px / mt 6 -->
     <TextView
         android:id="@+id/week_sub"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:textSize="13.5sp"
+        android:layout_marginTop="6dp"
+        android:textSize="10.5sp"
         android:includeFontPadding="false"
         android:textColor="#A296B2"
         android:singleLine="true" />
 
-
-    <!-- 7 天条带（原型 .strip：w 10 / n 13 / dd 9.5） -->
+    <!-- 条带紧跟内容（原型卡片高度=内容高度，条带就在 wk-sub 下面） -->
+    <!-- .strip：pt 10；w 10px / n 13px / dd 9.5px -->
     <LinearLayout
         android:id="@+id/week_strip"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:layout_marginTop="8dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
         android:orientation="horizontal"
         android:weightSum="7">
 
-        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center">
-            <TextView android:id="@+id/ww_0" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.0" android:gravity="center_vertical" android:textSize="14sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" />
-            <TextView android:id="@+id/wn_0" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.6" android:gravity="center_vertical" android:paddingTop="2dp" android:textSize="21sp" android:textStyle="bold" android:layout_marginTop="4dp" android:includeFontPadding="false" android:singleLine="true" />
-            <TextView android:id="@+id/wd_0" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.0" android:gravity="center_vertical" android:textSize="13sp" android:textColor="#A99FB8" android:layout_marginTop="4dp" android:includeFontPadding="false" android:singleLine="true" />
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center_horizontal">
+            <TextView android:id="@+id/ww_0" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="10sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" />
+            <TextView android:id="@+id/wn_0" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:textSize="13sp" android:textStyle="bold" android:includeFontPadding="false" android:singleLine="true" />
+            <TextView android:id="@+id/wd_0" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textSize="9.5sp" android:textColor="#A99FB8" android:includeFontPadding="false" android:singleLine="true" />
         </LinearLayout>
 
-        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center">
-            <TextView android:id="@+id/ww_1" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.0" android:gravity="center_vertical" android:textSize="14sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" />
-            <TextView android:id="@+id/wn_1" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.6" android:gravity="center_vertical" android:paddingTop="2dp" android:textSize="21sp" android:textStyle="bold" android:layout_marginTop="4dp" android:includeFontPadding="false" android:singleLine="true" />
-            <TextView android:id="@+id/wd_1" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.0" android:gravity="center_vertical" android:textSize="13sp" android:textColor="#A99FB8" android:layout_marginTop="4dp" android:includeFontPadding="false" android:singleLine="true" />
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center_horizontal">
+            <TextView android:id="@+id/ww_1" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="10sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" />
+            <TextView android:id="@+id/wn_1" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:textSize="13sp" android:textStyle="bold" android:includeFontPadding="false" android:singleLine="true" />
+            <TextView android:id="@+id/wd_1" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textSize="9.5sp" android:textColor="#A99FB8" android:includeFontPadding="false" android:singleLine="true" />
         </LinearLayout>
 
-        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center">
-            <TextView android:id="@+id/ww_2" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.0" android:gravity="center_vertical" android:textSize="14sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" />
-            <TextView android:id="@+id/wn_2" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.6" android:gravity="center_vertical" android:paddingTop="2dp" android:textSize="21sp" android:textStyle="bold" android:layout_marginTop="4dp" android:includeFontPadding="false" android:singleLine="true" />
-            <TextView android:id="@+id/wd_2" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.0" android:gravity="center_vertical" android:textSize="13sp" android:textColor="#A99FB8" android:layout_marginTop="4dp" android:includeFontPadding="false" android:singleLine="true" />
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center_horizontal">
+            <TextView android:id="@+id/ww_2" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="10sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" />
+            <TextView android:id="@+id/wn_2" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:textSize="13sp" android:textStyle="bold" android:includeFontPadding="false" android:singleLine="true" />
+            <TextView android:id="@+id/wd_2" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textSize="9.5sp" android:textColor="#A99FB8" android:includeFontPadding="false" android:singleLine="true" />
         </LinearLayout>
 
-        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center">
-            <TextView android:id="@+id/ww_3" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.0" android:gravity="center_vertical" android:textSize="14sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" />
-            <TextView android:id="@+id/wn_3" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.6" android:gravity="center_vertical" android:paddingTop="2dp" android:textSize="21sp" android:textStyle="bold" android:layout_marginTop="4dp" android:includeFontPadding="false" android:singleLine="true" />
-            <TextView android:id="@+id/wd_3" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.0" android:gravity="center_vertical" android:textSize="13sp" android:textColor="#A99FB8" android:layout_marginTop="4dp" android:includeFontPadding="false" android:singleLine="true" />
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center_horizontal">
+            <TextView android:id="@+id/ww_3" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="10sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" />
+            <TextView android:id="@+id/wn_3" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:textSize="13sp" android:textStyle="bold" android:includeFontPadding="false" android:singleLine="true" />
+            <TextView android:id="@+id/wd_3" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textSize="9.5sp" android:textColor="#A99FB8" android:includeFontPadding="false" android:singleLine="true" />
         </LinearLayout>
 
-        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center">
-            <TextView android:id="@+id/ww_4" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.0" android:gravity="center_vertical" android:textSize="14sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" />
-            <TextView android:id="@+id/wn_4" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.6" android:gravity="center_vertical" android:paddingTop="2dp" android:textSize="21sp" android:textStyle="bold" android:layout_marginTop="4dp" android:includeFontPadding="false" android:singleLine="true" />
-            <TextView android:id="@+id/wd_4" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.0" android:gravity="center_vertical" android:textSize="13sp" android:textColor="#A99FB8" android:layout_marginTop="4dp" android:includeFontPadding="false" android:singleLine="true" />
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center_horizontal">
+            <TextView android:id="@+id/ww_4" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="10sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" />
+            <TextView android:id="@+id/wn_4" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:textSize="13sp" android:textStyle="bold" android:includeFontPadding="false" android:singleLine="true" />
+            <TextView android:id="@+id/wd_4" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textSize="9.5sp" android:textColor="#A99FB8" android:includeFontPadding="false" android:singleLine="true" />
         </LinearLayout>
 
-        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center">
-            <TextView android:id="@+id/ww_5" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.0" android:gravity="center_vertical" android:textSize="14sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" />
-            <TextView android:id="@+id/wn_5" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.6" android:gravity="center_vertical" android:paddingTop="2dp" android:textSize="21sp" android:textStyle="bold" android:layout_marginTop="4dp" android:includeFontPadding="false" android:singleLine="true" />
-            <TextView android:id="@+id/wd_5" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.0" android:gravity="center_vertical" android:textSize="13sp" android:textColor="#A99FB8" android:layout_marginTop="4dp" android:includeFontPadding="false" android:singleLine="true" />
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center_horizontal">
+            <TextView android:id="@+id/ww_5" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="10sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" />
+            <TextView android:id="@+id/wn_5" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:textSize="13sp" android:textStyle="bold" android:includeFontPadding="false" android:singleLine="true" />
+            <TextView android:id="@+id/wd_5" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textSize="9.5sp" android:textColor="#A99FB8" android:includeFontPadding="false" android:singleLine="true" />
         </LinearLayout>
 
-        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center">
-            <TextView android:id="@+id/ww_6" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.0" android:gravity="center_vertical" android:textSize="14sp" android:textColor="#D2505C" android:textStyle="bold" android:includeFontPadding="false" android:singleLine="true" />
-            <TextView android:id="@+id/wn_6" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.6" android:gravity="center_vertical" android:paddingTop="2dp" android:textSize="21sp" android:textStyle="bold" android:layout_marginTop="4dp" android:includeFontPadding="false" android:singleLine="true" />
-            <TextView android:id="@+id/wd_6" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.0" android:gravity="center_vertical" android:textSize="13sp" android:textColor="#A99FB8" android:layout_marginTop="4dp" android:includeFontPadding="false" android:singleLine="true" />
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center_horizontal">
+            <TextView android:id="@+id/ww_6" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="10sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" />
+            <TextView android:id="@+id/wn_6" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:textSize="13sp" android:textStyle="bold" android:includeFontPadding="false" android:singleLine="true" />
+            <TextView android:id="@+id/wd_6" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textSize="9.5sp" android:textColor="#A99FB8" android:includeFontPadding="false" android:singleLine="true" />
         </LinearLayout>
     </LinearLayout>
+
+    <!-- 剩余空白留在卡片下方 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical" />
 </LinearLayout>

@@ -52,6 +52,8 @@ class Sound private constructor(ctx: Context) {
     }
 
     fun tap() = vibrate(6)
+    /** 底栏 tab 单击：复用「加一组」那下 12ms 手感，不出声 */
+    fun tabTap() = vibrate(12)
     fun add() {
         vibrate(12); beep(988.0, 85, 0.15)
         thread { Thread.sleep(34); beep(1319.0, 70, 0.09) }

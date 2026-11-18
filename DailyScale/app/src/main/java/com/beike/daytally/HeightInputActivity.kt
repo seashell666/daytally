@@ -19,8 +19,8 @@ import com.beike.daytally.util.C
 import com.beike.daytally.util.Ui
 
 /**
- * 桌面身高大卡「去记录」的落点：透明 Activity，只浮一层输入弹窗 + 键盘，
- * 不进入 App 页面。保存只有两个入口：弹窗里的「保存」按钮、输入法回车/完成，
+ * 桌面身高大卡「去记录」的落点：透明 Activity，只浮一层输入弹窗 + 键盘，不进入 App 页面。
+ * 弹窗内不再有按钮。保存入口只有两个：输入法回车/完成、点弹窗以外的任何位置；
  * 两者都会落盘 + 收键盘 + 关窗口，不存在「存了但窗还开着」的中间态。
  */
 class HeightInputActivity : Activity() {
@@ -55,7 +55,8 @@ class HeightInputActivity : Activity() {
     private fun buildSheet() {
         val mask = View(this).apply {
             background = getDrawable(R.drawable.bg_mask)
-            setOnClickListener { close() }        // 点遮罩 = 取消，不保存
+            // 点弹窗以外任意位置：有合法值就保存，没值就当取消
+            setOnClickListener { if (valid()) commit() else close() }
         }
         val shell = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -86,37 +87,12 @@ class HeightInputActivity : Activity() {
             imeOptions = EditorInfo.IME_ACTION_DONE
         }
         et.setOnEditorActionListener { _, a, _ ->
-            if (a == EditorInfo.IME_ACTION_DONE) { commit(); true } else false
+            if (a == EditorInfo.IME_ACTION_DONE) {
+                if (valid()) commit() else close()
+                true
+            } else false
         }
         shell.addView(title); shell.addView(et)
-
-        // 明确的按钮：不依赖各家输入法的动作键
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dp(14f), 0, 0)
-        }
-        val cancel = TextView(this).apply {
-            text = "取消"
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f * Ui.S)
-            setTextColor(C.INK3)
-            gravity = Gravity.CENTER
-            setPadding(dp(18f), dp(11f), dp(18f), dp(11f))
-            setOnClickListener { close() }
-        }
-        val save = TextView(this).apply {
-            text = "保存"
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f * Ui.S)
-            setTypeface(typeface, Typeface.BOLD)
-            setTextColor(0xFFFFFFFF.toInt())
-            gravity = Gravity.CENTER
-            background = getDrawable(R.drawable.bg_pill_btn)
-            setPadding(dp(26f), dp(11f), dp(26f), dp(11f))
-            setOnClickListener { commit() }
-        }
-        row.addView(cancel, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        row.addView(save)
-        shell.addView(row)
 
         val box = FrameLayout(this).apply { addView(shell) }
         overlay.addView(mask)

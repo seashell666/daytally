@@ -43,7 +43,10 @@ class HeightWidget : AppWidgetProvider() {
             } else {
                 views.setTextViewText(R.id.wh_val, repo.fmt(today, 1))
                 views.setTextColor(R.id.wh_val, cs.getOrNull(repo.todayIdx) ?: C.INK_NONE)
-                views.setTextViewText(R.id.wh_sub, "今天已记录 ${repo.fmt(today, 1)} 厘米")
+                // 原型口径：11/18 已记录
+                val d = java.time.LocalDate.now()
+                views.setTextViewText(R.id.wh_sub,
+                    String.format("%02d/%02d 已记录", d.monthValue, d.dayOfMonth))
             }
             views.setTextColor(R.id.wh_sub, C.INK3)
 

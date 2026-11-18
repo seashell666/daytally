@@ -103,11 +103,13 @@ class MainActivity : AppCompatActivity() {
                 tag = key
                 setOnClickListener {
                     val now = android.os.SystemClock.uptimeMillis()
+                    val dbl = key != "home" && key == lastTabKey && now - lastTabMs < 420L
                     /* 趋势/项目双击 = 直接回今天页（原型行为），单击照常切换 */
-                    if (key != "home" && key == lastTabKey && now - lastTabMs < 420L) {
+                    if (dbl) {
                         lastTabKey = ""
                         switchView("home")
                     } else {
+                        sound.tabTap()      // 单击立刻震一下；双击时只有第一下震
                         lastTabKey = key
                         lastTabMs = now
                         switchView(key)

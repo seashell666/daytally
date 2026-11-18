@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 原型 .bigcard：linear-gradient(152deg,#FCFBFF 0%,#F2EBFE 58%,#E8DFFB 100%) -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <gradient android:type="linear" android:angle="270"
+        android:startColor="#FCFBFF" android:centerColor="#F2EBFE" android:endColor="#E8DFFB" />
+    <corners android:radius="26dp" />
+</shape>
