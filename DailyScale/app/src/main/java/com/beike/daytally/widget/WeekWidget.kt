@@ -34,10 +34,18 @@ class WeekWidget : AppWidgetProvider() {
         private val N_IDS = intArrayOf(R.id.wn_0, R.id.wn_1, R.id.wn_2, R.id.wn_3, R.id.wn_4, R.id.wn_5, R.id.wn_6)
         private val D_IDS = intArrayOf(R.id.wd_0, R.id.wd_1, R.id.wd_2, R.id.wd_3, R.id.wd_4, R.id.wd_5, R.id.wd_6)
 
-        private fun currentKey(ctx: Context): String {
+        /** 当前大卡选中的项目（1×1 方块点击时也写这个键，用来联动） */
+        fun currentKey(ctx: Context): String {
             val k = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                 .getString(PREF_KEY, KEYS[0]) ?: KEYS[0]
             return if (k in KEYS) k else KEYS[0]
+        }
+
+        /** 仅改选中项目，不刷新（由调用方统一刷新所有组件） */
+        fun setCurrentKey(ctx: Context, key: String) {
+            if (key !in KEYS) return
+            ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit().putString(PREF_KEY, key).apply()
         }
 
         /** 生成大卡的 RemoteViews（桌面刷新与 App 内预览共用同一套渲染） */
@@ -87,18 +95,17 @@ class WeekWidget : AppWidgetProvider() {
             )
             views.setTextColor(R.id.week_sub, if (done) 0xD9FFFFFF.toInt() else C.INK3)
 
-            // 7 天条带（组数）
+            // 7 天条带（固定周二 → 周一，今天之后留空）
             val cs = repo.seriesColors(m)
             for (k in 0 until 7) {
-                val i = Repo.N - 7 + k
-                val d = repo.days[i]
-                views.setTextViewText(W_IDS[k], WK[d.dayOfWeek.value % 7])
+                val (d, i, outside) = repo.stripSlot(k)
+                views.setTextViewText(W_IDS[k], WK[(k + 2) % 7])
                 views.setTextColor(
                     W_IDS[k],
                     if (done) 0xD9FFFFFF.toInt()
                     else if (i == repo.todayIdx) C.RED else 0xFF9C92AC.toInt()
                 )
-                val g = repo.rawVal(m, i)
+                val g = if (outside) null else repo.rawVal(m, i)
                 if (g == null) {
                     views.setTextViewText(N_IDS[k], "--")
                     views.setTextColor(N_IDS[k], if (done) 0xB3FFFFFF.toInt() else 0xFFB7AEC6.toInt())
@@ -140,7 +147,7 @@ class WeekWidget : AppWidgetProvider() {
     }
 
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
-        val repo = Repo.get(context)
+        val repo = Repo.get(context).also { it.ensureToday() }
         ids.forEach { render(context, manager, repo, it) }
     }
 
@@ -149,10 +156,9 @@ class WeekWidget : AppWidgetProvider() {
     }
 
     private fun refreshAll(context: Context) {
+        val repo = Repo.get(context).also { it.ensureToday() }
         val manager = AppWidgetManager.getInstance(context)
         val cn = ComponentName(context, WeekWidget::class.java)
-        manager.getAppWidgetIds(cn).forEach { id ->
-            render(context, manager, Repo.get(context), id)
-        }
+        manager.getAppWidgetIds(cn).forEach { id -> render(context, manager, repo, id) }
     }
 }

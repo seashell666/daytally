@@ -25,11 +25,24 @@ class Repo private constructor(private val ctx: Context) {
 
     val order = listOf("height", "push", "horse", "pullup", "custom")
     val metrics = LinkedHashMap<String, Metric>()
-    val days: List<LocalDate> = (N - 1 downTo 0).map { LocalDate.now().minusDays(it.toLong()) }
+    var days: List<LocalDate> = (N - 1 downTo 0).map { LocalDate.now().minusDays(it.toLong()) }
+        private set
+    private var builtFor: LocalDate = LocalDate.now()
     val todayIdx = N - 1
     private val fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd")
 
     init { load() }
+
+    /**
+     * 跨天后重建 30 天窗口。
+     * 组件进程会长期驻留，若不重建，过了 0 点 `days` 还是昨天的，桌面日期就卡住不动。
+     */
+    fun ensureToday() {
+        val now = LocalDate.now()
+        if (now == builtFor) return
+        builtFor = now
+        days = (N - 1 downTo 0).map { now.minusDays(it.toLong()) }
+    }
 
     fun dateStr(d: LocalDate) = d.format(fmt)
     fun todayStr() = dateStr(days[todayIdx])
@@ -116,6 +129,9 @@ class Repo private constructor(private val ctx: Context) {
         }
         root.put("metrics", mj)
         ctx.filesDir.resolve(FILE).writeText(root.toString(), Charsets.UTF_8)
+
+        /* 落盘成功就顺手把桌面组件刷一遍：App 里改了数字，桌面不能还停在旧的 */
+        runCatching { com.beike.daytally.widget.WidgetRefresh.refreshAll(ctx) }
     }
 
     // ---------- 取值与统计 ----------
@@ -140,6 +156,18 @@ class Repo private constructor(private val ctx: Context) {
     fun isDone(m: Metric) = m.per > 0 && cumTotal(m) >= m.goal
 
     fun todayRaw(m: Metric) = m.data[todayStr()] ?: 0.0
+
+    /**
+     * 固定「周二 → 周一」周期：条带第 k 格（0..6）。
+     * 返回该格日期、对应数据索引、以及是否在窗口外（今天之后 / 30 天之前）。
+     * k=0 恒为周二，k=6 恒为周一；到下一个周二自动重置。
+     */
+    fun stripSlot(k: Int): Triple<LocalDate, Int, Boolean> {
+        val off = (days[todayIdx].dayOfWeek.value + 5) % 7   // 周二=0 … 周一=6
+        val idx = todayIdx + (k - off)
+        val date = days[todayIdx].plusDays((k - off).toLong())
+        return Triple(date, idx, idx > todayIdx || idx < 0)
+    }
 
     fun seriesColors(m: Metric): List<Int?> {
         val cs = arrayOfNulls<Int>(N)

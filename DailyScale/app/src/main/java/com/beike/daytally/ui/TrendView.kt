@@ -27,6 +27,7 @@ class TrendView(ctx: Context, val repo: Repo, val sound: Sound, val cb: TrendCal
     private lateinit var stats: LinearLayout
     private lateinit var chart: ChartView
     private lateinit var detail: LinearLayout
+    private lateinit var scroller: ScrollView
     private var downX = 0f
     private var downY = 0f
 
@@ -70,6 +71,7 @@ class TrendView(ctx: Context, val repo: Repo, val sound: Sound, val cb: TrendCal
             )
             isVerticalScrollBarEnabled = false
         }
+        scroller = sv
         val inner = LinearLayout(context).apply {
             orientation = VERTICAL
             setPadding(0, 0, 0, dp(16f))
@@ -172,6 +174,8 @@ class TrendView(ctx: Context, val repo: Repo, val sound: Sound, val cb: TrendCal
         renderStats(m)
         chart.show(m, repo)
         renderDetail(m)
+        /* 切项目后列表回到最上面：原型里换项目一律回顶，不能停在上一项滚到的位置 */
+        scroller.post { scroller.scrollTo(0, 0) }
     }
 
     private fun statBlock(label: String, value: String, unit: String, color: Int, showLineBefore: Boolean): View {

@@ -11,6 +11,7 @@ import android.widget.RemoteViews
 import com.beike.daytally.MainActivity
 import com.beike.daytally.R
 import com.beike.daytally.Repo
+import com.beike.daytally.Sound
 import com.beike.daytally.util.C
 import com.beike.daytally.util.Ui
 
@@ -22,6 +23,7 @@ open class WidgetProvider(private val key: String) : AppWidgetProvider() {
 
     companion object {
         const val ACTION_ADD = "com.beike.daytally.WIDGET_ADD"
+        const val ACTION_REMOVE = "com.beike.daytally.WIDGET_REMOVE"
         const val EXTRA_KEY = "metric_key"
         private const val EXTRA_PAGE = "page"
         private const val EXTRA_METRIC = "metric"
@@ -94,16 +96,28 @@ open class WidgetProvider(private val key: String) : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
-        if (intent.action == ACTION_ADD) {
-            val k = intent.getStringExtra(EXTRA_KEY) ?: key
-            val repo = Repo.get(context)
-            repo.metric(k).let { repo.addGroup(it) }
-            refreshAll(context)
+        when (intent.action) {
+            ACTION_ADD -> {
+                val k = intent.getStringExtra(EXTRA_KEY) ?: key
+                val repo = Repo.get(context).also { it.ensureToday() }
+                repo.metric(k).let { repo.addGroup(it) }
+                /* 点方块同时把大卡切到这个项目：两者是一套东西，原型里就是这么联动的 */
+                WeekWidget.setCurrentKey(context, k)
+                refreshAll(context)
+            }
+            ACTION_REMOVE -> {
+                /* 来自 Vector 模块：桌面上长按方块 = 退一组 */
+                val k = intent.getStringExtra(EXTRA_KEY) ?: key
+                val repo = Repo.get(context).also { it.ensureToday() }
+                repo.metric(k).let { repo.removeGroup(it) }
+                Sound.get(context).remove()
+                refreshAll(context)
+            }
         }
     }
 
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
-        val repo = Repo.get(context)
+        val repo = Repo.get(context).also { it.ensureToday() }
         ids.forEach { render(context, manager, repo, it) }
     }
 
@@ -111,10 +125,19 @@ open class WidgetProvider(private val key: String) : AppWidgetProvider() {
         manager.updateAppWidget(id, buildTile(context, repo, key, javaClass))
     }
 
+    /** 刷新自己这类方块，并连带刷新大卡（数据变了、选中项目也可能变了） */
     private fun refreshAll(context: Context) {
+        val repo = Repo.get(context).also { it.ensureToday() }
         val manager = AppWidgetManager.getInstance(context)
         val cn = ComponentName(context, javaClass)
-        manager.getAppWidgetIds(cn).forEach { render(context, manager, Repo.get(context), it) }
+        manager.getAppWidgetIds(cn).forEach { render(context, manager, repo, it) }
+
+        val weekCn = ComponentName(context, WeekWidget::class.java)
+        manager.getAppWidgetIds(weekCn).forEach { id ->
+            manager.updateAppWidget(
+                id, WeekWidget.buildCard(context, repo, WeekWidget.currentKey(context))
+            )
+        }
     }
 }
 

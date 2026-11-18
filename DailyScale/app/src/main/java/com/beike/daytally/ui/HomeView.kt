@@ -173,8 +173,8 @@ class HomeView(ctx: Context, val repo: Repo, val sound: Sound, val cb: HomeCallb
             setPadding(0, dp(10f), 0, 0)
         }
         for (k in 0 until 7) {
-            val i = Repo.N - 7 + k
-            val v = repo.valOf(m, i)
+            val (d, i, outside) = repo.stripSlot(k)
+            val v = if (outside) null else repo.valOf(m, i)
             val isToday = i == repo.todayIdx
             val cell = LinearLayout(context).apply {
                 orientation = VERTICAL
@@ -184,7 +184,7 @@ class HomeView(ctx: Context, val repo: Repo, val sound: Sound, val cb: HomeCallb
                 )
             }
             val w = TextView(context).apply {
-                text = weekLabel(i)
+                text = WK[(k + 2) % 7]
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f * Ui.S)
                 setTextColor(if (isToday) C.RED else Color.parseColor("#9C92AC"))
                 if (isToday) setTypeface(typeface, Typeface.BOLD)
@@ -195,7 +195,7 @@ class HomeView(ctx: Context, val repo: Repo, val sound: Sound, val cb: HomeCallb
                     text = "--"; setTextColor(Color.parseColor("#B7AEC6"))
                 } else {
                     text = repo.fmt(v, m.dec)
-                    setTextColor(cs[i] ?: C.INK_NONE)
+                    setTextColor(cs.getOrNull(i) ?: C.INK_NONE)
                 }
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f * Ui.S)
                 setTypeface(typeface, Typeface.BOLD)
@@ -203,7 +203,7 @@ class HomeView(ctx: Context, val repo: Repo, val sound: Sound, val cb: HomeCallb
                 setPadding(0, dp(5f), 0, 0)
             }
             val dd = TextView(context).apply {
-                text = dayLabel(i)
+                text = String.format("%02d/%02d", d.monthValue, d.dayOfMonth)
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 9.5f * Ui.S)
                 setTextColor(if (isToday) C.INK2 else Color.parseColor("#A99FB8"))
                 gravity = Gravity.CENTER
@@ -249,9 +249,12 @@ class HomeView(ctx: Context, val repo: Repo, val sound: Sound, val cb: HomeCallb
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f * Ui.S)
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(C.INK)
+            /* 项目名按 4 字占位：两字项目也让右侧紫色标签从同一条线起排 */
+            minEms = 4
         }
         val tag = TextView(context).apply {
-            text = "${m.per} ${m.unit} / 组"
+            val shortUnit = if (m.unit == "分钟") "分" else m.unit
+            text = "${m.per} $shortUnit / 组"
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f * Ui.S)
             setTextColor(C.PURPLE)
             setBackgroundResource(R.drawable.bg_tag)

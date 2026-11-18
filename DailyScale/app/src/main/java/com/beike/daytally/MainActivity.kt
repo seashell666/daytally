@@ -33,6 +33,8 @@ class MainActivity : AppCompatActivity() {
     private var tabIcons: List<android.widget.ImageView> = emptyList()
     private var tabLabels: List<Pair<String, TextView>> = emptyList()
     private var current = "home"
+    private var lastTabKey = ""
+    private var lastTabMs = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -78,6 +80,11 @@ class MainActivity : AppCompatActivity() {
                 switchView("trend")
                 intent.getStringExtra("metric")?.let { trend.openMetric(it) }
             }
+            "home" -> {
+                switchView("home")
+                /* 身高大卡的「去记录」：进来就弹身高弹窗（连输入法一起） */
+                if (intent.getBooleanExtra("height_sheet", false)) openHeightSheet()
+            }
         }
     }
 
@@ -94,7 +101,18 @@ class MainActivity : AppCompatActivity() {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
                 tag = key
-                setOnClickListener { switchView(key) }
+                setOnClickListener {
+                    val now = android.os.SystemClock.uptimeMillis()
+                    /* 趋势/项目双击 = 直接回今天页（原型行为），单击照常切换 */
+                    if (key != "home" && key == lastTabKey && now - lastTabMs < 420L) {
+                        lastTabKey = ""
+                        switchView("home")
+                    } else {
+                        lastTabKey = key
+                        lastTabMs = now
+                        switchView(key)
+                    }
+                }
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
                 setPadding(0, Ui.dp(this@MainActivity, 6f), 0, 0)
             }
@@ -163,6 +181,10 @@ class MainActivity : AppCompatActivity() {
                 Ui.dp(this@MainActivity, 13f), Ui.dp(this@MainActivity, 11f))
             gravity = Gravity.CENTER
             setSelectAllOnFocus(true)
+            /* 单行 + 右下角「完成」= 存盘关窗，框里不允许换行 */
+            isSingleLine = true
+            maxLines = 1
+            imeOptions = EditorInfo.IME_ACTION_DONE
         }
         val valid = {
             val s = et.text.toString().trim()
@@ -174,13 +196,8 @@ class MainActivity : AppCompatActivity() {
             repo.save(); sound.save(); home.render()
         }
         et.addTextChangedListener(object : TextWatcher {
-            private var runnable: Runnable? = null
             override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
-            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {
-                runnable?.let { overlay.removeCallbacks(it) }
-                runnable = Runnable { if (valid()) commit() }
-                overlay.postDelayed(runnable!!, 700)
-            }
+            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
             override fun afterTextChanged(s: Editable?) {}
         })
         et.setOnEditorActionListener { _, a, _ ->
@@ -203,9 +220,19 @@ class MainActivity : AppCompatActivity() {
         overlay.removeAllViews()
         overlay.addView(mask); overlay.addView(box)
         overlay.visibility = View.VISIBLE
+        /* 弹窗一出来就聚焦 + 起键盘（豆包输入法会按 inputType 直接出九宫格数字盘） */
+        et.requestFocus()
+        et.post {
+            val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE)
+                    as android.view.inputmethod.InputMethodManager
+            imm.showSoftInput(et, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+        }
     }
 
     private fun closeHeight() {
+        val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE)
+                as android.view.inputmethod.InputMethodManager
+        imm.hideSoftInputFromWindow(overlay.windowToken, 0)
         overlay.visibility = View.GONE
         overlay.removeAllViews()
     }

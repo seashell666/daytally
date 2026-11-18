@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 身高专用 4×2 大卡（对照原型左侧身高卡）：值贴顶、去记录右上、条带铺满下半截 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/wh_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:paddingLeft="20dp"
+    android:paddingTop="16dp"
+    android:paddingRight="20dp"
+    android:paddingBottom="14dp"
+    android:background="@drawable/bg_week">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="horizontal"
+            android:gravity="bottom">
+
+            <TextView
+                android:id="@+id/wh_val"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="42sp"
+                android:textStyle="bold"
+                android:textColor="#2B2338"
+                android:includeFontPadding="false"
+                android:singleLine="true" />
+
+            <TextView
+                android:id="@+id/wh_unit"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="5dp"
+                android:layout_marginBottom="4dp"
+                android:text="厘米"
+                android:textSize="15sp"
+                android:textColor="#6E6079"
+                android:includeFontPadding="false"
+                android:singleLine="true" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/wh_btn"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="去记录"
+            android:textColor="#FFFFFF"
+            android:textSize="15sp"
+            android:paddingLeft="14dp"
+            android:paddingTop="8dp"
+            android:paddingRight="14dp"
+            android:paddingBottom="8dp"
+            android:background="@drawable/bg_pill_btn"
+            android:includeFontPadding="false"
+            android:singleLine="true" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/wh_sub"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="5dp"
+        android:text="今天还没记录"
+        android:textSize="13.5sp"
+        android:textColor="#A296B2"
+        android:includeFontPadding="false"
+        android:singleLine="true" />
+
+    <!-- 条带吃掉剩余高度：三行按 1 : 1.6 : 1 铺满 -->
+    <LinearLayout
+        android:id="@+id/wh_strip"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:weightSum="7"
+        android:layout_marginTop="8dp">
+
+        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+            <TextView android:id="@+id/hw_0" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.0" android:textSize="14sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" android:gravity="center_vertical" />
+            <TextView android:id="@+id/hn_0" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.6" android:textSize="15sp" android:textStyle="bold" android:includeFontPadding="false" android:singleLine="true" android:gravity="center_vertical" />
+            <TextView android:id="@+id/hd_0" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.0" android:textSize="13sp" android:textColor="#A99FB8" android:includeFontPadding="false" android:singleLine="true" android:gravity="center_vertical" />
+        </LinearLayout>
+
+        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+            <TextView android:id="@+id/hw_1" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.0" android:textSize="14sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" android:gravity="center_vertical" />
+            <TextView android:id="@+id/hn_1" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.6" android:textSize="15sp" android:textStyle="bold" android:includeFontPadding="false" android:singleLine="true" android:gravity="center_vertical" />
+            <TextView android:id="@+id/hd_1" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.0" android:textSize="13sp" android:textColor="#A99FB8" android:includeFontPadding="false" android:singleLine="true" android:gravity="center_vertical" />
+        </LinearLayout>
+
+        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+            <TextView android:id="@+id/hw_2" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.0" android:textSize="14sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" android:gravity="center_vertical" />
+            <TextView android:id="@+id/hn_2" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.6" android:textSize="15sp" android:textStyle="bold" android:includeFontPadding="false" android:singleLine="true" android:gravity="center_vertical" />
+            <TextView android:id="@+id/hd_2" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.0" android:textSize="13sp" android:textColor="#A99FB8" android:includeFontPadding="false" android:singleLine="true" android:gravity="center_vertical" />
+        </LinearLayout>
+
+        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+            <TextView android:id="@+id/hw_3" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.0" android:textSize="14sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" android:gravity="center_vertical" />
+            <TextView android:id="@+id/hn_3" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.6" android:textSize="15sp" android:textStyle="bold" android:includeFontPadding="false" android:singleLine="true" android:gravity="center_vertical" />
+            <TextView android:id="@+id/hd_3" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.0" android:textSize="13sp" android:textColor="#A99FB8" android:includeFontPadding="false" android:singleLine="true" android:gravity="center_vertical" />
+        </LinearLayout>
+
+        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+            <TextView android:id="@+id/hw_4" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.0" android:textSize="14sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" android:gravity="center_vertical" />
+            <TextView android:id="@+id/hn_4" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.6" android:textSize="15sp" android:textStyle="bold" android:includeFontPadding="false" android:singleLine="true" android:gravity="center_vertical" />
+            <TextView android:id="@+id/hd_4" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.0" android:textSize="13sp" android:textColor="#A99FB8" android:includeFontPadding="false" android:singleLine="true" android:gravity="center_vertical" />
+        </LinearLayout>
+
+        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+            <TextView android:id="@+id/hw_5" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.0" android:textSize="14sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" android:gravity="center_vertical" />
+            <TextView android:id="@+id/hn_5" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.6" android:textSize="15sp" android:textStyle="bold" android:includeFontPadding="false" android:singleLine="true" android:gravity="center_vertical" />
+            <TextView android:id="@+id/hd_5" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.0" android:textSize="13sp" android:textColor="#A99FB8" android:includeFontPadding="false" android:singleLine="true" android:gravity="center_vertical" />
+        </LinearLayout>
+
+        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+            <TextView android:id="@+id/hw_6" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.0" android:textSize="14sp" android:textColor="#D2505C" android:textStyle="bold" android:includeFontPadding="false" android:singleLine="true" android:gravity="center_vertical" />
+            <TextView android:id="@+id/hn_6" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.6" android:textSize="15sp" android:textStyle="bold" android:includeFontPadding="false" android:singleLine="true" android:gravity="center_vertical" />
+            <TextView android:id="@+id/hd_6" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1.0" android:textSize="13sp" android:textColor="#A99FB8" android:includeFontPadding="false" android:singleLine="true" android:gravity="center_vertical" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

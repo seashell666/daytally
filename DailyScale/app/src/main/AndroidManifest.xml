@@ -19,6 +19,20 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".HeightInputActivity"
+            android:exported="false"
+            android:theme="@style/Theme.DayTally.Transparent"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance" />
+
+        <!-- 开发预览：ad hoc 启动核对 4×2 大卡渲染 -->
+        <activity
+            android:name=".WidgetPreviewActivity"
+            android:exported="false"
+            android:theme="@style/Theme.DayTally"
+            android:excludeFromRecents="true" />
+
         <receiver
             android:name=".widget.PushWidget"
             android:exported="true"
@@ -75,5 +89,28 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_week_info" />
         </receiver>
+
+        <receiver
+            android:name=".widget.HeightWidget"
+            android:exported="true"
+            android:label="身高 · 大卡">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_height_info" />
+        </receiver>
+
+        <!-- Vector / LSPosed 模块声明：装同一个 APK，在框架里勾选即可 -->
+        <meta-data
+            android:name="xposedmodule"
+            android:value="true" />
+        <meta-data
+            android:name="xposeddescription"
+            android:value="日刻桌面方块：长按直接退一组（需在 Vector 中启用本模块）" />
+        <meta-data
+            android:name="xposedminversion"
+            android:value="82" />
     </application>
 </manifest>

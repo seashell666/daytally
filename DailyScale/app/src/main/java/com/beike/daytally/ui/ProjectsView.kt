@@ -148,13 +148,11 @@ class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: Proje
                 if (done) R.drawable.bg_gold_v else R.drawable.bg_card_white
             )
             setPadding(dp(16f), dp(14f), dp(16f), dp(14f))
-            // 原型 .proj-card 基线高 ≈ 85px（42 图标 + 上下 14 + 两行 meta）；
-            // 用 WRAP_CONTENT + minimumHeight，字号放大后 meta 折行时卡片自己变高，不会被切
+            // 5 张卡平分整页高度：weight 撑满，不再留底部一大块空
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
+                0, 1f
             ).apply { bottomMargin = dp(10f) }
-            minimumHeight = dp(85f)
             elevation = dp(2f).toFloat()
         }
 
@@ -194,12 +192,12 @@ class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: Proje
                 "每组 " to false,
                 "${m.per} ${m.unit}" to true,
                 " · 累计 " to false,
-                "${nf.format(Math.round(cum))} ${m.unit}" to true,
-                " · 目标 ${nf.format(m.goal)}" to false
+                "${nf.format(Math.round(cum))} ${m.unit}" to true
             ), hi)
             val line2 = spanMeta(listOf(
                 "趋势纵轴 " to false,
-                "0 ~ ${m.maxGroups} 组" to true
+                "0 ~ ${m.maxGroups} 组" to true,
+                " · 目标 ${nf.format(m.goal)}" to false
             ), hi)
             info.addView(metaView(line1, dp(4f), base))
             info.addView(metaView(line2, dp(3f), base))
@@ -306,7 +304,16 @@ class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: Proje
         setPadding(0, 0, 0, dp(14f))
     }
 
-    private fun field(hint: String, value: String): EditText {
+    /**
+     * 弹窗输入框：一律单行，右下角「完成」= 确认保存并关窗，不允许在框里换行。
+     * numeric=true 时直接要数字键盘（豆包输入法会给九宫格数字盘），name 类走 26 键。
+     */
+    private fun field(
+        hint: String,
+        value: String,
+        numeric: Boolean = false,
+        maxLen: Int = 0
+    ): EditText {
         return EditText(context).apply {
             setText(value)
             setHint(hint)
@@ -317,6 +324,29 @@ class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: Proje
             setPadding(dp(13f), dp(11f), dp(13f), dp(11f))
             gravity = Gravity.CENTER
             setSelectAllOnFocus(true)
+            isSingleLine = true
+            maxLines = 1
+            imeOptions = EditorInfo.IME_ACTION_DONE
+            inputType = if (numeric) {
+                android.text.InputType.TYPE_CLASS_NUMBER
+            } else {
+                android.text.InputType.TYPE_CLASS_TEXT
+            }
+            if (maxLen > 0) {
+                filters = arrayOf<android.text.InputFilter>(
+                    android.text.InputFilter.LengthFilter(maxLen)
+                )
+            }
+        }
+    }
+
+    /** 弹层一开就把焦点和键盘一起给出去（豆包输入法按 inputType 决定出九宫格还是 26 键） */
+    private fun focusAndShowKeyboard(et: EditText) {
+        et.requestFocus()
+        et.post {
+            val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE)
+                    as android.view.inputmethod.InputMethodManager
+            imm.showSoftInput(et, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
         }
     }
 
@@ -340,7 +370,7 @@ class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: Proje
     private fun openMaxGroupsSheet(m: Metric) {
         val shell = sheetShell()
         shell.addView(sheetTitle("趋势纵轴上限"))
-        val et = field("1 ~ 999（组）", m.maxGroups.toString())
+        val et = field("1 ~ 999（组）", m.maxGroups.toString(), numeric = true, maxLen = 3)
         val valid = {
             val v = et.text.toString().trim().toIntOrNull(); v != null && v in 1..999
         }
@@ -354,19 +384,20 @@ class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: Proje
         }
         shell.addView(et)
         showOverlay(shell) { if (valid()) commit() }
+        focusAndShowKeyboard(et)
     }
 
     private fun openEditSheet(m: Metric) {
         val shell = sheetShell()
         shell.addView(sheetTitle("编辑项目"))
         var unit = m.unit
-        val nameEt = field("项目名（≤6 字）", m.name)
-        val perEt = field("每组值 1 ~ 999", m.per.toString())
+        val nameEt = field("项目名（≤4 字）", m.name, maxLen = 4)
+        val perEt = field("每组值 1 ~ 999", m.per.toString(), numeric = true, maxLen = 3)
         shell.addView(nameEt); shell.addView(space())
         shell.addView(perEt); shell.addView(space())
 
         val unitRow = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
-        val opts = listOf("个", "分钟")
+        val opts = listOf("个", "分钟", "招")
         val unitBtns = mutableListOf<TextView>()
         opts.forEach { u ->
             val b = TextView(context).apply {
@@ -396,7 +427,7 @@ class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: Proje
         val valid = {
             val n = nameEt.text.toString().trim()
             val p = perEt.text.toString().trim().toIntOrNull()
-            n.isNotEmpty() && n.length <= 6 && p != null && p in 1..999
+            n.isNotEmpty() && n.length <= 4 && p != null && p in 1..999
         }
         val commit = {
             m.name = nameEt.text.toString().trim()
@@ -414,6 +445,7 @@ class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: Proje
             if (a == EditorInfo.IME_ACTION_DONE) { act(); true } else false
         }
         showOverlay(shell) { if (valid()) commit() }
+        focusAndShowKeyboard(nameEt)
     }
 
     private fun openConfirmReset(m: Metric) {

@@ -2,4 +2,5 @@
     <string name="app_name">日刻</string>
     <string name="widget_tile_desc">点一下加一组，环朝总目标走</string>
     <string name="widget_week_desc">七天组数一眼看完，点顶部可切换项目</string>
+    <string name="widget_height_desc">今日身高与七天记录，点右上去记录</string>
 </resources>

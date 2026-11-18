@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>每日复刻 · App 交互原型</title>
+<title>日刻 · App 交互原型</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23F2EAFE'/%3E%3Cpath d='M38 14c8 2 12 11 9 19-3 8-12 12-19 9-4-2-4-7-2-11 2-4 6-5 8-9 1-4 1-8 4-8z' fill='%23D2505C'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="https://miaoda.feishu.cn/fonts/css2?family=Nunito:wght@500;600;700;800&family=Noto+Sans+SC:wght@300;400;500;700&display=swap">
 <style>
@@ -126,7 +126,7 @@ body::before{
 .pill-btn{border:0;border-radius:999px;padding:8px 14px;font-size:12.5px;font-family:var(--cn);font-weight:500;color:#fff;background:linear-gradient(180deg,#DE6572,#CB4A57);box-shadow:0 8px 16px -10px rgba(190,50,70,.8);cursor:pointer;white-space:nowrap;transition:transform .16s var(--spring),filter .2s}
 .pill-btn:active{transform:scale(.94);filter:brightness(.94)}
 
-/* 7 天条带（最近7天滑动窗口） */
+/* 7 天条带（固定周二→周一周期） */
 .strip{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-top:auto;padding-top:10px}
 .strip .cell{text-align:center}
 .strip .w{font-size:10px;color:#9C92AC;letter-spacing:.02em}
@@ -172,6 +172,7 @@ body::before{
 .counter{border-radius:22px;background:#fff;border:1px solid rgba(120,96,170,.1);padding:11px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 8px 22px -18px rgba(74,45,120,.4)}
 .counter .info{flex:1;min-width:0}
 .counter .nm{display:flex;align-items:center;gap:7px;font-size:14px;font-weight:600}
+.counter .nmtext{display:inline-block;min-width:4em;white-space:nowrap}   /* 项目名一律按 4 字宽占位，右侧 tag 起点对齐 */
 .counter .tag{font-size:10px;color:var(--purple);background:#F1EBFE;border-radius:6px;padding:2px 6px;font-weight:500;letter-spacing:.02em}
 .counter .val{display:flex;align-items:baseline;gap:4px;margin-top:6px;font-family:var(--num)}
 .counter .val .v{font-size:26px;font-weight:800;letter-spacing:-.02em;transition:color .3s var(--ease),transform .3s var(--spring)}
@@ -193,8 +194,8 @@ body::before{
 .wm-grid .corner{font-size:10px;color:var(--ink3)}
 
 /* 项目页 */
-.proj-list{flex:1;padding:4px 16px 16px;overflow:auto;display:flex;flex-direction:column;gap:10px}
-.proj-card{border-radius:20px;background:#fff;border:1px solid rgba(120,96,170,.1);padding:14px 16px;display:flex;align-items:center;gap:12px}
+.proj-list{flex:1;padding:6px 16px 14px;overflow:auto;display:flex;flex-direction:column;gap:12px}
+.proj-card{border-radius:20px;background:#fff;border:1px solid rgba(120,96,170,.1);padding:14px 16px;display:flex;align-items:center;gap:12px;flex:1;min-height:0}
 .proj-card .ic{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;flex:none;background:var(--lilac-2);color:var(--purple-deep)}
 .proj-card .ic svg{width:21px;height:21px}
 .proj-card .t{flex:1;min-width:0}
@@ -326,19 +327,19 @@ body::before{
 
   <!-- ===== 展板头部 ===== -->
   <header class="masthead">
-    <div class="kicker"><span class="dot"></span>设计交付 · 第四版原型<span class="sep"></span>确认后进入 Kotlin 开发</div>
+    <div class="kicker"><span class="dot"></span>设计交付 · 第 10 版原型1<span class="sep"></span>确认后进入 Kotlin 开发</div>
     <div class="head-row">
       <div class="title-block">
-        <div class="appicon"><img src="assets/icon-a.png" alt="每日复刻图标"></div>
+        <div class="appicon"><img src="assets/icon-a.png" alt="日刻图标"></div>
         <div>
-          <h1>每日<em>复刻</em></h1>
+          <h1>日<em>刻</em></h1>
           <div class="subline">每天给自己加一点 · 身高 / 组数 / 看板</div>
         </div>
       </div>
       <div class="head-meta">
         <span class="chip"><b>Android</b> · Kotlin</span>
         <span class="chip">单 Activity · Compose</span>
-        <span class="chip">2026.11.16</span>
+        <span class="chip" id="ver-chip">2026.11.18</span>
       </div>
     </div>
 
@@ -548,7 +549,7 @@ body::before{
               <div class="sd">改名字、每组是多少，以及按个还是按分钟算</div>
               <div class="custom-field">
                 <label>项目名称</label>
-                <input type="text" data-edit-name maxlength="6" placeholder="项目名">
+                <input type="text" data-edit-name maxlength="4" placeholder="项目名（最多 4 字）">
               </div>
               <div class="custom-field">
                 <label>每组数值</label>
@@ -558,6 +559,7 @@ body::before{
                 <label>单位</label>
                 <div class="unit-switch">
                   <button type="button" data-unit="个" data-act="unit-个">个</button>
+                  <button type="button" data-unit="招" data-act="unit-招">招</button>
                   <button type="button" data-unit="分钟" data-act="unit-分钟">分钟</button>
                 </div>
               </div>
@@ -648,7 +650,7 @@ const rnd = mulberry32(20261116);
 function ri(a,b){return Math.floor(rnd()*(b-a+1))+a;}
 
 const N = 30;
-const baseNow = new Date(2026, 10, 16);           // 今天 2026-11-16
+const baseNow = new Date();                       // 今天 = 打开原型这一天（条带周期永远周二→周一）
 const dateObjs = [];
 for(let i = N - 1; i >= 0; i--){ const d = new Date(baseNow); d.setDate(d.getDate() - i); dateObjs.push(d); }
 const pad2 = x => String(x).padStart(2, '0');
@@ -679,10 +681,10 @@ const S = {
   order: ['height','push','horse','pullup','custom'],
   m: {
     height:{ key:'height', name:'身高',     unit:'厘米', dec:1, per:0,  goal:0,     maxGroups:0, data:heightData },
-    push:  { key:'push',   name:'俯卧撑',   unit:'个',   dec:0, per:12, goal:1000, maxGroups:32, data:pushData },
-    horse: { key:'horse',  name:'蹲马步',   unit:'分钟', dec:0, per:11, goal:1000, maxGroups:32, data:horseData },
-    pullup:{ key:'pullup', name:'引体向上', unit:'个',   dec:0, per:12, goal:1000, maxGroups:32, data:pullupData },
-    custom:{ key:'custom', name:'自定义',   unit:'个',   dec:0, per:10, goal:1000, maxGroups:32, data:customData }
+    push:  { key:'push',   name:'俯卧撑',   unit:'个',   dec:0, per:12, goal:10000, maxGroups:32, data:pushData },
+    horse: { key:'horse',  name:'蹲马步',   unit:'分钟', dec:0, per:11, goal:10000, maxGroups:32, data:horseData },
+    pullup:{ key:'pullup', name:'引体向上', unit:'个',   dec:0, per:12, goal:10000, maxGroups:32, data:pullupData },
+    custom:{ key:'custom', name:'自定义',   unit:'个',   dec:0, per:10, goal:10000, maxGroups:32, data:customData }
   }
 };
 
@@ -706,6 +708,8 @@ function valOf(m, i){
   return m.per ? g * m.per : g;
 }
 function fmt(v, dec){ return Number(v).toFixed(dec); }
+/* 千分位：固定用逗号，不依赖系统 locale（部分环境会输出成 10.000） */
+function nf(n){ return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
 function prevIndex(m, i){
   for(let k = i - 1; k >= 0; k--){ if(valOf(m, k) !== null) return k; }
   return -1;
@@ -735,22 +739,37 @@ function seriesColors(m){
   return cs;
 }
 
-/* ---------- 最近 7 天条带（滑动窗口） ---------- */
+/* ---------- 固定 7 天周期条带（周二 → 周一，不随今天滑动） ---------- */
+/* 距"本周二"几天：周二=0，周三=1 …… 周日=5，周一=6 */
+function periodOffset(){
+  const dow = baseNow.getDay();                 // 0=周日,1=周一,2=周二 … 6=周六
+  return (dow >= 2) ? (dow - 2) : (dow + 5);
+}
+/* 条带第 k 位（0..6）：对应日期与数据索引，今天之后一律空白 */
+function stripSlot(k){
+  const off = periodOffset();
+  const i = LAST + (k - off);
+  const d = new Date(baseNow); d.setDate(d.getDate() + (k - off));
+  return { i, d, future: i > LAST, past: i < 0 };
+}
 function stripHTML(m, cs){
   let out = '<div class="strip">';
   for(let k = 0; k < 7; k++){
-    const i = N - 7 + k;
-    const v = valOf(m, i);
+    const { i, d, future, past } = stripSlot(k);
     const isToday = i === LAST;
+    const wk = WK[(k + 2) % 7];                 // k=0 周二 … k=6 周一
+    const dd = pad2(d.getMonth() + 1) + '/' + pad2(d.getDate());
     let body;
-    if(v === null){ body = '<div class="n" style="color:#B7AEC6">--</div>'; }
-    else {
+    if(future || past || valOf(m, i) === null){
+      body = '<div class="n" style="color:#B7AEC6">--</div>';
+    } else {
+      const v = valOf(m, i);
       const txt = m.per ? fmt(v, 0) : fmt(v, m.dec);
       body = `<div class="n" style="color:${cs[i]}">${txt}</div>`;
     }
     out += `<div class="cell${isToday ? ' today' : ''}">
-      <div class="w">${S.weeks[i]}</div>${body}
-      <div class="dd">${S.days[i]}</div>
+      <div class="w">${wk}</div>${body}
+      <div class="dd">${dd}</div>
     </div>`;
   }
   return out + '</div>';
@@ -797,7 +816,7 @@ function renderDesk(){
   const tiles = ['push','horse','pullup','custom'].map(k => tileHTML(S.m[k])).join('');
 
   document.querySelector('[data-region="desk"]').innerHTML = `
-    <div class="bigcard" data-act="open-height">
+    <div class="bigcard" data-act="desk-height-trend">
       <div class="top">
         <div>
           <div class="bignum">${numPart}<span class="u">厘米</span></div>
@@ -827,13 +846,17 @@ function weekCardHTML(){
 
   let strip = '<div class="strip">';
   for(let k = 0; k < 7; k++){
-    const i = N - 7 + k, g = m.data[i], isToday = i === LAST;
+    const { i, d, future, past } = stripSlot(k);
+    const isToday = i === LAST;
+    const wkLbl = WK[(k + 2) % 7];                // 周二 → 周一
+    const ddLbl = pad2(d.getMonth() + 1) + '/' + pad2(d.getDate());
+    const g = (future || past) ? null : m.data[i];
     let body;
     if(g === null || g === undefined){ body = '<div class="n" style="color:'+(done?'rgba(255,255,255,.7)':'#B7AEC6')+'">--</div>'; }
     else { body = `<div class="n" style="color:${done?'#FFFFFF':cs[i]}">${g}</div>`; }
     strip += `<div class="cell${isToday ? ' today' : ''}">
-      <div class="w" style="${done?'color:rgba(255,255,255,.85)':''}">${S.weeks[i]}</div>${body}
-      <div class="dd" style="${done?'color:rgba(255,255,255,.8)':''}">${S.days[i]}</div>
+      <div class="w" style="${done?'color:rgba(255,255,255,.85)':''}">${wkLbl}</div>${body}
+      <div class="dd" style="${done?'color:rgba(255,255,255,.8)':''}">${ddLbl}</div>
     </div>`;
   }
   strip += '</div>';
@@ -859,9 +882,10 @@ function renderHome(){
     const m = S.m[key];
     const v = valOf(m, LAST), cs = seriesColors(m);
     const done = isDone(m);
+    const uShort = m.unit === '分钟' ? '分' : m.unit;   // 标签里“分钟”写作“分”，四张卡的标签左边缘才能对齐
     return `<div class="counter${done ? ' gold' : ''}">
       <div class="info">
-        <div class="nm">${m.name} <span class="tag">${m.per} ${m.unit} / 组</span></div>
+        <div class="nm"><span class="nmtext">${m.name}</span><span class="tag">${m.per} ${uShort} / 组</span></div>
         <div class="val">
           <span class="v${S.flash === m.key ? ' pop' : ''}" style="color:${cs[LAST]}">${fmt(v, 0)}</span>
           <span class="u">${m.unit}</span>
@@ -1029,13 +1053,13 @@ function renderProjects(){
     const m = S.m[key];
     if(m.per){
       const done = isDone(m);
-      const meta = `每组 <b>${m.per} ${m.unit}</b> · 累计 <b>${Math.round(cumTotal(m)).toLocaleString()} ${m.unit}</b> · 目标 ${m.goal.toLocaleString()}`;
+      const meta = `每组 <b>${m.per} ${m.unit}</b> · 累计 <b>${nf(cumTotal(m))} ${m.unit}</b>`;
       return `<div class="proj-card editable${done ? ' gold' : ''}" data-act="setmax-${m.key}" data-key="${m.key}">
         <div class="ic">${icons[m.key]}</div>
         <div class="t">
           <div class="nm">${m.name}${done ? ' · 已达成' : ''}</div>
           <div class="meta">${meta}</div>
-          <div class="meta" style="margin-top:3px">趋势纵轴 <b>0 ~ ${m.maxGroups} 组</b></div>
+          <div class="meta" style="margin-top:3px">趋势纵轴 <b>0 ~ ${m.maxGroups} 组</b> · 目标 <b>${nf(m.goal)}</b></div>
         </div>
         <div class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5l7 7-7 7"/></svg></div>
       </div>`;
@@ -1148,6 +1172,8 @@ function switchView(v){
   document.querySelectorAll('.tabbar .tab')
     .forEach(t => t.classList.toggle('on', t.dataset.act === 'go-' + v));
 }
+/* 底栏 Tab 双击计时：双击「趋势 / 项目」直接回今天页 */
+let tabLastTap = {};
 function openSheet(screen){
   const sheet = screen.querySelector('[data-sheet]');
   const scrim = screen.querySelector('.scrim');
@@ -1300,7 +1326,7 @@ function readEdit(screen){
   const unitBtn = sheet.querySelector('.unit-switch button.on');
   const badPer = !/^\d{1,4}$/.test(perRaw) || isNaN(per) || per < 1 || per > 999;
   if(badPer || name.length < 1) return null;
-  return { name: name.slice(0,6), per, unit: unitBtn ? unitBtn.dataset.unit : null };
+  return { name: name.slice(0,4), per, unit: unitBtn ? unitBtn.dataset.unit : null };
 }
 function shakeInput(el){
   haptic(30); beep(220, .16, .14, 'square');
@@ -1390,11 +1416,32 @@ document.addEventListener('click', e => {
     addGroup(act.slice(4), el);
   }
   else if(act === 'open-height'){ openSheet(screen); }
+  else if(act === 'desk-height-trend'){
+    /* 桌面身高大卡：点卡片主体 → 右侧 App 直接进趋势页（默认选中身高）；
+       右上角「去记录」按钮仍是弹输入框，两者互不干扰 */
+    switchView('trend');
+    S.seg = 0;
+    const appScreen = document.getElementById('view-trend').closest('.screen');
+    appScreen.querySelectorAll('[data-seg] button').forEach((b,i) => b.classList.toggle('on', i === 0));
+    renderTrendInto(appScreen.querySelector('[data-region="trend"]'));
+    haptic(10);
+  }
   else if(act === 'close-sheet'){ closeSheet(screen); }
   else if(act === 'save-height'){ saveHeight(screen); }
-  else if(act === 'go-home'){ switchView('home'); }
-  else if(act === 'go-trend'){ switchView('trend'); haptic(8); }
-  else if(act === 'go-projects'){ switchView('projects'); haptic(8); }
+  else if(act === 'go-home'){ switchView('home'); tabLastTap = {}; }
+  else if(act === 'go-trend' || act === 'go-projects'){
+    const target = act === 'go-trend' ? 'trend' : 'projects';
+    const now = Date.now();
+    if(tabLastTap[act] && now - tabLastTap[act] < 420){
+      tabLastTap[act] = 0;
+      switchView('home');                        // 双击底栏 Tab → 直接回今天页
+      haptic(14); beep(760, .07, .11);
+    } else {
+      tabLastTap[act] = now;
+      switchView(target);
+      haptic(8);
+    }
+  }
   else if(act === 'seg'){
     switchTrendProject(screen.querySelector('[data-region^="trend"]'), Number(el.dataset.i));
   }
@@ -1413,7 +1460,7 @@ document.addEventListener('click', e => {
   else if(act === 'cancel-confirm'){ cancelConfirm(screen); }
   else if(act === 'do-reset'){ resetProject(screen); }
   else if(act === 'close-edit'){ dismissEdit(screen); }
-  else if(act === 'unit-个' || act === 'unit-分钟'){
+  else if(act === 'unit-个' || act === 'unit-招' || act === 'unit-分钟'){
     el.closest('.unit-switch').querySelectorAll('button')
       .forEach(b => b.classList.toggle('on', b === el));
     haptic(6);
@@ -1519,6 +1566,8 @@ document.querySelectorAll('[data-edit-name],[data-edit-per]').forEach(input => {
 
 document.getElementById('home-date').textContent =
   '今天是 ' + (baseNow.getMonth() + 1) + ' 月 ' + baseNow.getDate() + ' 日';
+document.getElementById('ver-chip').textContent =
+  baseNow.getFullYear() + '.' + pad2(baseNow.getMonth() + 1) + '.' + pad2(baseNow.getDate());
 
 render();
 </script>

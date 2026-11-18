@@ -11,4 +11,4 @@
     android:initialLayout="@layout/widget_tile"
     android:previewLayout="@layout/widget_tile"
     android:description="@string/widget_tile_desc"
-    android:updatePeriodMillis="0" />
+    android:updatePeriodMillis="1800000" />
