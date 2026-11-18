@@ -61,6 +61,23 @@ class DayTallyXposed : IXposedHookLoadPackage {
 
                     val key = keyOf(providerName) ?: return
 
+                    // 按下反馈：整块缩一下再弹回，和 App 内长按的手感对齐
+                    runCatching {
+                        v.animate().cancel()
+                        v.animate()
+                            .scaleX(0.90f).scaleY(0.90f)
+                            .setDuration(90)
+                            .withEndAction {
+                                runCatching {
+                                    v.animate()
+                                        .scaleX(1f).scaleY(1f)
+                                        .setDuration(160)
+                                        .start()
+                                }
+                            }
+                            .start()
+                    }
+
                     val i = Intent(ACTION_REMOVE).setPackage("com.beike.daytally")
                     i.putExtra(EXTRA_KEY, key)
                     ctx.sendBroadcast(i)
