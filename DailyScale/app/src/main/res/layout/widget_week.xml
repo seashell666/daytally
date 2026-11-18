@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/week_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:paddingLeft="13dp"
+    android:paddingTop="11dp"
+    android:paddingRight="13dp"
+    android:paddingBottom="10dp"
+    android:background="@drawable/bg_week">
+
+    <!-- 四个项目胶囊（原型 .weektabs：11px、padding 6、gap 5、mb 8） -->
+    <LinearLayout
+        android:id="@+id/week_tabs"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/wtab_0"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:paddingTop="5dp"
+            android:paddingBottom="5dp"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:includeFontPadding="false"
+            android:singleLine="true"
+            android:textColor="#6E58BE" />
+
+        <TextView
+            android:id="@+id/wtab_1"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginLeft="5dp"
+            android:gravity="center"
+            android:paddingTop="5dp"
+            android:paddingBottom="5dp"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:includeFontPadding="false"
+            android:singleLine="true"
+            android:textColor="#6E58BE" />
+
+        <TextView
+            android:id="@+id/wtab_2"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginLeft="5dp"
+            android:gravity="center"
+            android:paddingTop="5dp"
+            android:paddingBottom="5dp"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:includeFontPadding="false"
+            android:singleLine="true"
+            android:textColor="#6E58BE" />
+
+        <TextView
+            android:id="@+id/wtab_3"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginLeft="5dp"
+            android:gravity="center"
+            android:paddingTop="5dp"
+            android:paddingBottom="5dp"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:includeFontPadding="false"
+            android:singleLine="true"
+            android:textColor="#6E58BE" />
+    </LinearLayout>
+
+    <!-- 今日总量（原型 .wk-big .v 32px / .u 11.5px） -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="bottom"
+        android:layout_marginTop="8dp">
+
+        <TextView
+            android:id="@+id/week_val"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="26sp"
+            android:textStyle="bold"
+            android:textColor="#2B2338"
+            android:includeFontPadding="false"
+            android:singleLine="true" />
+
+        <TextView
+            android:id="@+id/week_unit"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="4dp"
+            android:layout_marginBottom="2dp"
+            android:textSize="11.5sp"
+            android:includeFontPadding="false"
+            android:textColor="#6E6079"
+            android:singleLine="true" />
+    </LinearLayout>
+
+    <!-- 副标题（原型 .wk-sub 10.5px、mt 6） -->
+    <TextView
+        android:id="@+id/week_sub"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="3dp"
+        android:textSize="10.5sp"
+        android:includeFontPadding="false"
+        android:textColor="#A296B2"
+        android:singleLine="true" />
+
+    <!-- 空白弹簧：把 7 天条带压到底部（原型 .strip 的 margin-top:auto）
+         RemoteViews 不允许 android.view.View，用空 LinearLayout 代替 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal" />
+
+    <!-- 7 天条带（原型 .strip：w 10 / n 13 / dd 9.5） -->
+    <LinearLayout
+        android:id="@+id/week_strip"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:weightSum="7">
+
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+            <TextView android:id="@+id/ww_0" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="10sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" />
+            <TextView android:id="@+id/wn_0" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="13sp" android:textStyle="bold" android:layout_marginTop="3dp" android:includeFontPadding="false" android:singleLine="true" />
+            <TextView android:id="@+id/wd_0" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="9.5sp" android:textColor="#A99FB8" android:layout_marginTop="3dp" android:includeFontPadding="false" android:singleLine="true" />
+        </LinearLayout>
+
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+            <TextView android:id="@+id/ww_1" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="10sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" />
+            <TextView android:id="@+id/wn_1" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="13sp" android:textStyle="bold" android:layout_marginTop="3dp" android:includeFontPadding="false" android:singleLine="true" />
+            <TextView android:id="@+id/wd_1" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="9.5sp" android:textColor="#A99FB8" android:layout_marginTop="3dp" android:includeFontPadding="false" android:singleLine="true" />
+        </LinearLayout>
+
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+            <TextView android:id="@+id/ww_2" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="10sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" />
+            <TextView android:id="@+id/wn_2" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="13sp" android:textStyle="bold" android:layout_marginTop="3dp" android:includeFontPadding="false" android:singleLine="true" />
+            <TextView android:id="@+id/wd_2" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="9.5sp" android:textColor="#A99FB8" android:layout_marginTop="3dp" android:includeFontPadding="false" android:singleLine="true" />
+        </LinearLayout>
+
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+            <TextView android:id="@+id/ww_3" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="10sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" />
+            <TextView android:id="@+id/wn_3" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="13sp" android:textStyle="bold" android:layout_marginTop="3dp" android:includeFontPadding="false" android:singleLine="true" />
+            <TextView android:id="@+id/wd_3" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="9.5sp" android:textColor="#A99FB8" android:layout_marginTop="3dp" android:includeFontPadding="false" android:singleLine="true" />
+        </LinearLayout>
+
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+            <TextView android:id="@+id/ww_4" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="10sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" />
+            <TextView android:id="@+id/wn_4" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="13sp" android:textStyle="bold" android:layout_marginTop="3dp" android:includeFontPadding="false" android:singleLine="true" />
+            <TextView android:id="@+id/wd_4" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="9.5sp" android:textColor="#A99FB8" android:layout_marginTop="3dp" android:includeFontPadding="false" android:singleLine="true" />
+        </LinearLayout>
+
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+            <TextView android:id="@+id/ww_5" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="10sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" />
+            <TextView android:id="@+id/wn_5" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="13sp" android:textStyle="bold" android:layout_marginTop="3dp" android:includeFontPadding="false" android:singleLine="true" />
+            <TextView android:id="@+id/wd_5" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="9.5sp" android:textColor="#A99FB8" android:layout_marginTop="3dp" android:includeFontPadding="false" android:singleLine="true" />
+        </LinearLayout>
+
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+            <TextView android:id="@+id/ww_6" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="10sp" android:textColor="#D2505C" android:textStyle="bold" android:includeFontPadding="false" android:singleLine="true" />
+            <TextView android:id="@+id/wn_6" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="13sp" android:textStyle="bold" android:layout_marginTop="3dp" android:includeFontPadding="false" android:singleLine="true" />
+            <TextView android:id="@+id/wd_6" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="9.5sp" android:textColor="#A99FB8" android:layout_marginTop="3dp" android:includeFontPadding="false" android:singleLine="true" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

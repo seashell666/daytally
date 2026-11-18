@@ -1,0 +1,43 @@
+<resources>
+    <!-- 文字与底色 -->
+    <color name="ink">#2B2338</color>
+    <color name="ink2">#6A6079</color>
+    <color name="ink3">#A296B2</color>
+    <color name="paper">#FBF8FF</color>
+    <color name="red">#D2505C</color>
+    <color name="red_dk">#B43644</color>
+    <color name="red_wash">#FBEBED</color>
+    <color name="purple">#8B76D9</color>
+    <color name="purple_deep">#6E58BE</color>
+    <color name="lilac_2">#F3ECFE</color>
+    <color name="lilac_3">#E9DFFB</color>
+    <color name="green">#2E9A6B</color>
+    <color name="green_wash">#E7F5EE</color>
+    <color name="flat">#8E85A0</color>
+    <color name="gold_text">#937cdf</color>
+
+    <!-- 金色 -->
+    <color name="gold">#F7C325</color>
+    <color name="gold_deep">#E0A10C</color>
+    <color name="gold_hi">#FFDE73</color>
+
+    <!-- 计数档位背景 0~7+ -->
+    <color name="bg0">#F4EEFE</color>
+    <color name="bg1">#FCEBED</color>
+    <color name="bg2">#F8CDD3</color>
+    <color name="bg3">#F0A6AF</color>
+    <color name="bg4">#E27788</color>
+    <color name="bg5">#CC4A5D</color>
+    <color name="bg6">#B02B40</color>
+    <color name="bg7">#94172C</color>
+
+    <!-- 计数档位前景 0~7+ -->
+    <color name="fg0">#8E85A0</color>
+    <color name="fg1">#B3FFFFFF</color>
+    <color name="fg2">#C7FFFFFF</color>
+    <color name="fg3">#D9FFFFFF</color>
+    <color name="fg4">#E6FFFFFF</color>
+    <color name="fg5">#F2FFFFFF</color>
+    <color name="fg6">#FAFFFFFF</color>
+    <color name="fg7">#FFFFFF</color>
+</resources>
