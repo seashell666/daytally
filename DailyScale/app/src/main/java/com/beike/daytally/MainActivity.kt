@@ -66,6 +66,8 @@ class MainActivity : AppCompatActivity() {
         buildTabs(main.findViewById(R.id.tabbar))
         switchView("home")
         handleWidgetIntent(intent)
+        /* 打开 App 就把桌面组件刷一遍，保证组件和 App 内数据永远一致 */
+        com.beike.daytally.widget.WidgetRefresh.refreshAll(this)
     }
 
     override fun onNewIntent(intent: android.content.Intent) {
