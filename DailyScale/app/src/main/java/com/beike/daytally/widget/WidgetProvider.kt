@@ -101,6 +101,8 @@ open class WidgetProvider(private val key: String) : AppWidgetProvider() {
                 val k = intent.getStringExtra(EXTRA_KEY) ?: key
                 val repo = Repo.get(context).also { it.ensureToday() }
                 repo.metric(k).let { repo.addGroup(it) }
+                /* 音效在 App 侧放（后台不受限）；震动由桌面模块负责，那边才有权限 */
+                Sound.get(context).add()
                 /* 点方块同时把大卡切到这个项目：两者是一套东西，原型里就是这么联动的 */
                 WeekWidget.setCurrentKey(context, k)
                 refreshAll(context)

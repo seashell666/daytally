@@ -104,6 +104,7 @@ class MainActivity : AppCompatActivity() {
                 gravity = Gravity.CENTER
                 tag = key
                 setOnClickListener {
+                    sound.tabTap()      // 每按必震：单击一下、双击两下
                     val now = android.os.SystemClock.uptimeMillis()
                     val dbl = key != "home" && key == lastTabKey && now - lastTabMs < 420L
                     /* 趋势/项目双击 = 直接回今天页（原型行为），单击照常切换 */
@@ -111,7 +112,6 @@ class MainActivity : AppCompatActivity() {
                         lastTabKey = ""
                         switchView("home")
                     } else {
-                        sound.tabTap()      // 单击立刻震一下；双击时只有第一下震
                         lastTabKey = key
                         lastTabMs = now
                         switchView(key)
@@ -157,6 +157,7 @@ class MainActivity : AppCompatActivity() {
 
     // ---------- 身高记录弹层 ----------
     private fun openHeightSheet() {
+        sound.sheetOpen()          // 与桌面大卡「去记录」同一手感
         val h = repo.metric("height")
         val shell = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL

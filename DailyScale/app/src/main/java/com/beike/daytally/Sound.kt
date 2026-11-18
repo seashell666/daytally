@@ -52,6 +52,8 @@ class Sound private constructor(ctx: Context) {
     }
 
     fun tap() = vibrate(6)
+    /** 「去记录」弹窗打开：轻震 + 一记短促提示音，今日页与桌面大卡共用同一手感 */
+    fun sheetOpen() { vibrate(10); beep(784.0, 55, 0.09, "sine") }
     /** 底栏 tab 单击：复用「加一组」那下 12ms 手感，不出声 */
     fun tabTap() = vibrate(12)
     fun add() {

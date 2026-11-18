@@ -3,6 +3,7 @@ package com.beike.daytally.widget
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
 import com.beike.daytally.Repo
 
 /**
@@ -11,10 +12,26 @@ import com.beike.daytally.Repo
  */
 object WidgetRefresh {
 
+    /**
+     * 把「每组多少个」同步给桌面模块，方块上那颗浮动数字要用它显示 +12 / −11。
+     * 不指定包名，桌面进程里模块动态注册的接收器才收得到。
+     */
+    private fun syncPer(ctx: Context, repo: Repo) {
+        runCatching {
+            val i = Intent("com.beike.daytally.PER_SYNC")
+            listOf("push", "horse", "pullup", "custom").forEach { k ->
+                i.putExtra("per_$k", repo.metric(k).per)
+            }
+            i.addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
+            ctx.sendBroadcast(i)
+        }
+    }
+
     fun refreshAll(ctx: Context) {
         val app = ctx.applicationContext
         val repo = Repo.get(app).also { it.ensureToday() }
         val manager = AppWidgetManager.getInstance(app) ?: return
+        syncPer(app, repo)
 
         // 4 个 1×1 方块
         listOf(

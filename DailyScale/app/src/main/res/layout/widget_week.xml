@@ -3,9 +3,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:paddingTop="16dp"
-    android:paddingBottom="16dp">
+    android:orientation="vertical">
 
     <!-- 上下两段弹性空白，把卡片挤在正中间 -->
     <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="vertical" />
@@ -26,7 +24,7 @@
             android:id="@+id/week_tabs"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="8dp"
+            android:layout_marginBottom="9dp"
             android:orientation="horizontal">
 
             <TextView
@@ -36,9 +34,9 @@
                 android:layout_weight="1"
                 android:background="@drawable/bg_weektab_off"
                 android:gravity="center"
-                android:paddingTop="6dp"
-                android:paddingBottom="6dp"
-                android:textSize="11sp"
+                android:paddingTop="7dp"
+                android:paddingBottom="7dp"
+                android:textSize="12sp"
                 android:textStyle="bold"
                 android:includeFontPadding="false"
                 android:singleLine="true"
@@ -52,9 +50,9 @@
                 android:layout_marginLeft="5dp"
                 android:background="@drawable/bg_weektab_off"
                 android:gravity="center"
-                android:paddingTop="6dp"
-                android:paddingBottom="6dp"
-                android:textSize="11sp"
+                android:paddingTop="7dp"
+                android:paddingBottom="7dp"
+                android:textSize="12sp"
                 android:textStyle="bold"
                 android:includeFontPadding="false"
                 android:singleLine="true"
@@ -68,9 +66,9 @@
                 android:layout_marginLeft="5dp"
                 android:background="@drawable/bg_weektab_off"
                 android:gravity="center"
-                android:paddingTop="6dp"
-                android:paddingBottom="6dp"
-                android:textSize="11sp"
+                android:paddingTop="7dp"
+                android:paddingBottom="7dp"
+                android:textSize="12sp"
                 android:textStyle="bold"
                 android:includeFontPadding="false"
                 android:singleLine="true"
@@ -84,9 +82,9 @@
                 android:layout_marginLeft="5dp"
                 android:background="@drawable/bg_weektab_off"
                 android:gravity="center"
-                android:paddingTop="6dp"
-                android:paddingBottom="6dp"
-                android:textSize="11sp"
+                android:paddingTop="7dp"
+                android:paddingBottom="7dp"
+                android:textSize="12sp"
                 android:textStyle="bold"
                 android:includeFontPadding="false"
                 android:singleLine="true"
@@ -104,7 +102,7 @@
                 android:id="@+id/week_val"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textSize="32sp"
+                android:textSize="35sp"
                 android:textStyle="bold"
                 android:textColor="#2B2338"
                 android:includeFontPadding="false"
@@ -116,7 +114,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginLeft="5dp"
                 android:layout_marginBottom="1dp"
-                android:textSize="11.5sp"
+                android:textSize="12.5sp"
                 android:textStyle="bold"
                 android:includeFontPadding="false"
                 android:textColor="#6E6079"
@@ -128,8 +126,8 @@
             android:id="@+id/week_sub"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:textSize="10.5sp"
+            android:layout_marginTop="7dp"
+            android:textSize="11.5sp"
             android:includeFontPadding="false"
             android:textColor="#A296B2"
             android:singleLine="true" />
@@ -139,50 +137,50 @@
             android:id="@+id/week_strip"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="12dp"
             android:orientation="horizontal"
             android:weightSum="7">
 
             <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center_horizontal">
-                <TextView android:id="@+id/ww_0" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="10sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" />
-                <TextView android:id="@+id/wn_0" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:textSize="13sp" android:textStyle="bold" android:includeFontPadding="false" android:singleLine="true" />
-                <TextView android:id="@+id/wd_0" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textSize="9.5sp" android:textColor="#A99FB8" android:includeFontPadding="false" android:singleLine="true" />
+                <TextView android:id="@+id/ww_0" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="11sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" />
+                <TextView android:id="@+id/wn_0" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:textSize="14sp" android:textStyle="bold" android:includeFontPadding="false" android:singleLine="true" />
+                <TextView android:id="@+id/wd_0" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textSize="10.5sp" android:textColor="#A99FB8" android:includeFontPadding="false" android:singleLine="true" />
             </LinearLayout>
 
             <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center_horizontal">
-                <TextView android:id="@+id/ww_1" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="10sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" />
-                <TextView android:id="@+id/wn_1" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:textSize="13sp" android:textStyle="bold" android:includeFontPadding="false" android:singleLine="true" />
-                <TextView android:id="@+id/wd_1" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textSize="9.5sp" android:textColor="#A99FB8" android:includeFontPadding="false" android:singleLine="true" />
+                <TextView android:id="@+id/ww_1" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="11sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" />
+                <TextView android:id="@+id/wn_1" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:textSize="14sp" android:textStyle="bold" android:includeFontPadding="false" android:singleLine="true" />
+                <TextView android:id="@+id/wd_1" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textSize="10.5sp" android:textColor="#A99FB8" android:includeFontPadding="false" android:singleLine="true" />
             </LinearLayout>
 
             <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center_horizontal">
-                <TextView android:id="@+id/ww_2" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="10sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" />
-                <TextView android:id="@+id/wn_2" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:textSize="13sp" android:textStyle="bold" android:includeFontPadding="false" android:singleLine="true" />
-                <TextView android:id="@+id/wd_2" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textSize="9.5sp" android:textColor="#A99FB8" android:includeFontPadding="false" android:singleLine="true" />
+                <TextView android:id="@+id/ww_2" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="11sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" />
+                <TextView android:id="@+id/wn_2" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:textSize="14sp" android:textStyle="bold" android:includeFontPadding="false" android:singleLine="true" />
+                <TextView android:id="@+id/wd_2" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textSize="10.5sp" android:textColor="#A99FB8" android:includeFontPadding="false" android:singleLine="true" />
             </LinearLayout>
 
             <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center_horizontal">
-                <TextView android:id="@+id/ww_3" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="10sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" />
-                <TextView android:id="@+id/wn_3" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:textSize="13sp" android:textStyle="bold" android:includeFontPadding="false" android:singleLine="true" />
-                <TextView android:id="@+id/wd_3" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textSize="9.5sp" android:textColor="#A99FB8" android:includeFontPadding="false" android:singleLine="true" />
+                <TextView android:id="@+id/ww_3" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="11sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" />
+                <TextView android:id="@+id/wn_3" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:textSize="14sp" android:textStyle="bold" android:includeFontPadding="false" android:singleLine="true" />
+                <TextView android:id="@+id/wd_3" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textSize="10.5sp" android:textColor="#A99FB8" android:includeFontPadding="false" android:singleLine="true" />
             </LinearLayout>
 
             <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center_horizontal">
-                <TextView android:id="@+id/ww_4" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="10sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" />
-                <TextView android:id="@+id/wn_4" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:textSize="13sp" android:textStyle="bold" android:includeFontPadding="false" android:singleLine="true" />
-                <TextView android:id="@+id/wd_4" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textSize="9.5sp" android:textColor="#A99FB8" android:includeFontPadding="false" android:singleLine="true" />
+                <TextView android:id="@+id/ww_4" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="11sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" />
+                <TextView android:id="@+id/wn_4" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:textSize="14sp" android:textStyle="bold" android:includeFontPadding="false" android:singleLine="true" />
+                <TextView android:id="@+id/wd_4" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textSize="10.5sp" android:textColor="#A99FB8" android:includeFontPadding="false" android:singleLine="true" />
             </LinearLayout>
 
             <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center_horizontal">
-                <TextView android:id="@+id/ww_5" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="10sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" />
-                <TextView android:id="@+id/wn_5" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:textSize="13sp" android:textStyle="bold" android:includeFontPadding="false" android:singleLine="true" />
-                <TextView android:id="@+id/wd_5" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textSize="9.5sp" android:textColor="#A99FB8" android:includeFontPadding="false" android:singleLine="true" />
+                <TextView android:id="@+id/ww_5" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="11sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" />
+                <TextView android:id="@+id/wn_5" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:textSize="14sp" android:textStyle="bold" android:includeFontPadding="false" android:singleLine="true" />
+                <TextView android:id="@+id/wd_5" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textSize="10.5sp" android:textColor="#A99FB8" android:includeFontPadding="false" android:singleLine="true" />
             </LinearLayout>
 
             <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center_horizontal">
-                <TextView android:id="@+id/ww_6" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="10sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" />
-                <TextView android:id="@+id/wn_6" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:textSize="13sp" android:textStyle="bold" android:includeFontPadding="false" android:singleLine="true" />
-                <TextView android:id="@+id/wd_6" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textSize="9.5sp" android:textColor="#A99FB8" android:includeFontPadding="false" android:singleLine="true" />
+                <TextView android:id="@+id/ww_6" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="11sp" android:textColor="#9C92AC" android:includeFontPadding="false" android:singleLine="true" />
+                <TextView android:id="@+id/wn_6" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:textSize="14sp" android:textStyle="bold" android:includeFontPadding="false" android:singleLine="true" />
+                <TextView android:id="@+id/wd_6" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textSize="10.5sp" android:textColor="#A99FB8" android:includeFontPadding="false" android:singleLine="true" />
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>

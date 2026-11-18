@@ -2,11 +2,22 @@ package com.beike.daytally.xposed
 
 import android.appwidget.AppWidgetHostView
 import android.appwidget.AppWidgetManager
+import android.content.BroadcastReceiver
+import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.graphics.Color
+import android.graphics.Typeface
 import android.os.SystemClock
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.PathInterpolator
+import android.widget.TextView
+import java.util.concurrent.atomic.AtomicInteger
 import de.robv.android.xposed.IXposedHookLoadPackage
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedBridge
@@ -14,37 +25,52 @@ import de.robv.android.xposed.XposedHelpers
 import de.robv.android.xposed.callbacks.XC_LoadPackage
 
 /**
- * 桌面长按退组。
+ * 桌面方块（4 个 1×1）的点击 / 长按手感，全部按 HTML 原型 floatText 的参数复刻。
  *
- * 为什么 MIUI 上一直不生效：桌面全程用自己的一层容器收触摸，事件根本不会走到
- * AppWidgetHostView 上，长按菜单也不是通过 View.performLongClick 弹的（实测日志里
- * 只有 launcher 自己的 DragContainerLayout，且没有任何 performLongClick 调用）。
+ * MIUI 桌面的触摸根本不进 AppWidgetHostView，所以只能在 dispatchTouchEvent 这一层
+ * 把落在方块上的手势整条接过来：
+ *   - 按下：方块缩到 0.93（复刻 CSS :active）
+ *   - 抬手（<200ms）：加一组 → 数字 pop 1.15 + 浮动「+每组数」向上飘散
+ *   - 按住（≥200ms）：退一组 → 浮动「−每组数」（紫色）
  *
- * 现在的做法：只接管 4 个 1×1 方块的触摸，其余武汉一律不碰。
- *   - 在根 View（DecorView）的 dispatchTouchEvent 里判断按下的点是否落在日刻方块上；
- *   - 落在方块上就把这条手势整个吃掉，桌面因此完全收不到，长按菜单再也不会弹；
- *   - 自己计时：按住不足 380ms 抬手 = 短按加一组；按住超过 380ms = 退一组 + 缩放回弹。
- *
- * 大卡（身高卡 / 计数卡）不参与接管，它们原来的点击行为保持不变。
- * 没装 Vector 或没勾选本模块时不执行任何逻辑，其余功能照常。
+ * 震动放在这一层做：桌面进程是前台、有 VIBRATE 权限，App 在后台会被系统禁掉震动。
+ * 音效仍由 App 播放（后台不受限）。
  */
 class DayTallyXposed : IXposedHookLoadPackage {
 
     companion object {
         private const val ACTION_ADD = "com.beike.daytally.WIDGET_ADD"
         private const val ACTION_REMOVE = "com.beike.daytally.WIDGET_REMOVE"
+        private const val ACTION_PER_SYNC = "com.beike.daytally.PER_SYNC"
         private const val EXTRA_KEY = "metric_key"
         private const val TAG = "DayTally"
-        private const val LONG_PRESS_MS = 380L
+        private const val SELF_PKG = "com.beike.daytally"
+
+        /** 长按阈值：0.2 秒（用户要求，原 380ms） */
+        private const val LONG_PRESS_MS = 200L
         private const val SLOP = 60f
+
+        private const val ADD_COLOR = 0xFFC9414E.toInt()   // HTML: '#C9414E'
+        private const val SUB_COLOR = 0xFF6E58BE.toInt()   // HTML: '#6E58BE'
 
         @Volatile private var pressKey: String? = null
         @Volatile private var pressHost: View? = null
         @Volatile private var pressAt = 0L
+        @Volatile private var pressDownTime = 0L
         @Volatile private var pressX = 0f
         @Volatile private var pressY = 0f
         @Volatile private var fired = false
         @Volatile private var lastLogAt = 0L
+
+        /** 每一轮按压的唯一编号：旧计时器到点时编号对不上就作废，修掉连点误减组 */
+        private val pressToken = AtomicInteger(0)
+        @Volatile private var pressPending: Runnable? = null
+
+        /** 每组多少个（给浮动数字用），由 App 广播同步过来 */
+        @Volatile private var perMap: Map<String, Int> = mapOf(
+            "push" to 12, "horse" to 11, "pullup" to 13, "custom" to 47
+        )
+        @Volatile private var receiverRegistered = false
 
         private fun keyOf(provider: String?): String? = when {
             provider == null -> null
@@ -55,26 +81,30 @@ class DayTallyXposed : IXposedHookLoadPackage {
             else -> null
         }
 
-        /** 这个 host 视图承载的是哪个日刻方块（大卡返回 null） */
+        /** 反射取 appWidgetId：MIUI 的组件容器不一定叫 AppWidgetHostView，但都带这个字段 */
+        private fun widgetIdOf(v: View): Int {
+            (v as? AppWidgetHostView)?.let { return it.appWidgetId }
+            return runCatching { XposedHelpers.getIntField(v, "mAppWidgetId") as Int }.getOrDefault(-1)
+        }
+
+        /** 这个 View 是不是承载日刻方块的容器（大卡返回 null） */
         private fun keyOfHost(v: View): String? {
+            val id = widgetIdOf(v)
+            if (id < 0) return null
             val ctx = v.context?.applicationContext ?: return null
-            val id: Int = (v as? AppWidgetHostView)?.appWidgetId
-                ?: (runCatching { XposedHelpers.getIntField(v, "mAppWidgetId") }.getOrNull() as? Int)
-                ?: return null
             val info = runCatching { AppWidgetManager.getInstance(ctx).getAppWidgetInfo(id) }.getOrNull() ?: return null
             val provider = info.provider?.className ?: return null
-            if (!provider.startsWith("com.beike.daytally.widget.")) return null
+            if (!provider.startsWith("$SELF_PKG.widget.")) return null
             return keyOf(provider)
         }
 
-        /** 从根 View 往下找，命中的点是哪个日刻方块 */
         private fun hitTest(root: View, x: Float, y: Float): Pair<String, View>? {
             var found: Pair<String, View>? = null
             val loc = IntArray(2)
 
             fun walk(v: View) {
                 if (found != null) return
-                if (v.visibility == View.VISIBLE && v.javaClass.name.contains("AppWidgetHostView")) {
+                if (v.visibility == View.VISIBLE) {
                     v.getLocationOnScreen(loc)
                     if (x >= loc[0] && x <= loc[0] + v.width && y >= loc[1] && y <= loc[1] + v.height) {
                         val k = keyOfHost(v)
@@ -96,17 +126,39 @@ class DayTallyXposed : IXposedHookLoadPackage {
             return found
         }
 
-        /** 按下反馈：整块缩一下再弹回 */
-        private fun bump(v: View) {
-            runCatching {
-                v.animate().cancel()
-                v.animate().scaleX(0.90f).scaleY(0.90f).setDuration(90).withEndAction {
-                    runCatching { v.animate().scaleX(1f).scaleY(1f).setDuration(160).start() }
-                }.start()
+        /** 诊断：把该点下面所有带 appWidgetId 的容器及其位置打出来 */
+        private fun probeHosts(root: View, x: Float, y: Float): String {
+            val sb = StringBuilder()
+            val loc = IntArray(2)
+            fun walk(v: View, depth: Int) {
+                if (depth > 14) return
+                v.getLocationOnScreen(loc)
+                val id = widgetIdOf(v)
+                if (id >= 0) {
+                    val proc = runCatching {
+                        val c = v.context?.applicationContext
+                        AppWidgetManager.getInstance(c).getAppWidgetInfo(id)?.provider?.className ?: "null"
+                    }.getOrNull() ?: "err"
+                    sb.append(v.javaClass.simpleName)
+                        .append("[id=").append(id)
+                        .append(",xy=").append(loc[0]).append(",").append(loc[1])
+                        .append(",").append(v.width).append("x").append(v.height)
+                        .append(",prov=").append(proc.substringAfterLast('.'))
+                        .append(",").append(if (x >= loc[0] && x <= loc[0] + v.width && y >= loc[1] && y <= loc[1] + v.height) "HIT" else "out")
+                        .append("] ")
+                }
+                if (v is ViewGroup) {
+                    var i = 0
+                    while (i < v.childCount) {
+                        walk(v.getChildAt(i), depth + 1)
+                        i++
+                    }
+                }
             }
+            walk(root, 0)
+            return if (sb.isEmpty()) "no-widget-view" else sb.toString()
         }
 
-        /** 诊断：打印坐标命中的最深 View 及其祖先链，用来认清桌面里组件容器到底是什么类 */
         private fun chainOf(root: View, x: Float, y: Float): String {
             var best: View? = null
             val loc = IntArray(2)
@@ -138,22 +190,146 @@ class DayTallyXposed : IXposedHookLoadPackage {
             return sb.toString()
         }
 
-        private fun providerOf(key: String): String = when (key) {
-            "push" -> "com.beike.daytally.widget.PushWidget"
-            "horse" -> "com.beike.daytally.widget.HorseWidget"
-            "pullup" -> "com.beike.daytally.widget.PullupWidget"
-            else -> "com.beike.daytally.widget.CustomWidget"
+        // ---------- 手感 ----------
+
+        /** 按下：整块缩到 0.93（对齐 CSS .tile:active） */
+        private fun squash(v: View) {
+            runCatching {
+                v.animate().cancel()
+                v.animate().scaleX(0.93f).scaleY(0.93f).setDuration(120).start()
+            }
         }
 
-        /** 显式发给对应组件的 receiver：隐式广播 MIUI 收不到，必须指定 component */
-        private fun send(ctx: android.content.Context, action: String, key: String) {
+        /** 抬手：弹回 1，带一点回弹（对齐 --spring） */
+        private fun restore(v: View) {
+            runCatching {
+                v.animate().cancel()
+                v.animate().scaleX(1f).scaleY(1f).setDuration(220)
+                    .setInterpolator(PathInterpolator(0.34f, 1.56f, 0.64f, 1f))
+                    .start()
+            }
+        }
+
+        private fun vibrate(v: View, ms: Int) {
+            runCatching {
+                val ctx = v.context?.applicationContext ?: return
+                val vib = ctx.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator ?: return
+                if (!vib.hasVibrator()) return
+                vib.vibrate(VibrationEffect.createOneShot(ms.toLong(), VibrationEffect.DEFAULT_AMPLITUDE))
+            }
+        }
+
+        /** 数字 pop：1 → 1.15 → 1（对齐 @keyframes pop，.38s） */
+        private fun popNumber(host: View) {
+            runCatching {
+                val ctx = host.context?.applicationContext ?: return
+                val res = ctx.packageManager.getResourcesForApplication(SELF_PKG)
+                val id = res.getIdentifier("widget_cnt", "id", SELF_PKG)
+                if (id == 0) return
+                val tv = host.findViewById<TextView>(id) ?: return
+                tv.animate().cancel()
+                tv.animate().scaleX(1.15f).scaleY(1.15f).setDuration(120)
+                    .setInterpolator(PathInterpolator(0.34f, 1.56f, 0.64f, 1f))
+                    .withEndAction {
+                        tv.animate().scaleX(1f).scaleY(1f).setDuration(260)
+                            .setInterpolator(PathInterpolator(0.34f, 1.56f, 0.64f, 1f))
+                            .start()
+                    }.start()
+            }
+        }
+
+        /**
+         * 浮动数字，逐字复刻 HTML floatText：
+         *   .65 → 1.1（上移 95%）+ 淡入，22% 处；再上移到 200%、回到 1.0、淡出到 0；总 760ms。
+         */
+        private fun floatText(root: View, host: View, text: String, color: Int) {
+            val ctx = root.context ?: return
+            val parent = root as? ViewGroup ?: return
+            val tv = TextView(ctx).apply {
+                setText(text)
+                setTextColor(color)
+                textSize = 21f                       // HTML 18px × 1.1755 ≈ 21dp
+                typeface = Typeface.DEFAULT_BOLD
+                includeFontPadding = false
+                setShadowLayer(10f, 0f, 2f, Color.WHITE)
+                isClickable = false
+                isFocusable = false
+            }
+            runCatching { parent.addView(tv, ViewGroup.LayoutParams(-2, -2)) }
+            val loc = IntArray(2)
+            host.getLocationOnScreen(loc)
+            val cx = loc[0] + host.width / 2f
+            val cy = loc[1] + 4f * 2.625f           // HTML: top + 4px，元素中心对齐该点
+
+            tv.post {
+                runCatching {
+                    val h = tv.height.toFloat()
+                    tv.x = cx - tv.width / 2f
+                    tv.y = cy - tv.height / 2f
+                    tv.pivotX = tv.width / 2f
+                    tv.pivotY = tv.height / 2f
+                    tv.scaleX = 0.65f
+                    tv.scaleY = 0.65f
+                    tv.alpha = 0f
+
+                    tv.animate().alpha(1f).scaleX(1.1f).scaleY(1.1f).translationY(-h * 0.95f)
+                        .setDuration(170)
+                        .setInterpolator(PathInterpolator(0.22f, 0.61f, 0.36f, 1f))
+                        .withEndAction {
+                            tv.animate().alpha(0f).scaleX(1f).scaleY(1f).translationY(-h * 2f)
+                                .setDuration(590)
+                                .setInterpolator(PathInterpolator(0.22f, 0.61f, 0.36f, 1f))
+                                .withEndAction { runCatching { parent.removeView(tv) } }
+                                .start()
+                        }.start()
+                }
+            }
+        }
+
+        private fun providerOf(key: String): String = when (key) {
+            "push" -> "$SELF_PKG.widget.PushWidget"
+            "horse" -> "$SELF_PKG.widget.HorseWidget"
+            "pullup" -> "$SELF_PKG.widget.PullupWidget"
+            else -> "$SELF_PKG.widget.CustomWidget"
+        }
+
+        private fun send(ctx: Context, action: String, key: String) {
             runCatching {
                 val i = Intent(action)
-                i.component = android.content.ComponentName("com.beike.daytally", providerOf(key))
+                i.component = ComponentName(SELF_PKG, providerOf(key))
                 i.putExtra(EXTRA_KEY, key)
                 i.addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
                 ctx.sendBroadcast(i)
             }.onFailure { log("send failed: $it") }
+        }
+
+        /** 收 App 广播过来的「每组多少个」，供浮动数字显示 */
+        private fun ensureReceiver(ctx: Context) {
+            if (receiverRegistered) return
+            synchronized(this) {
+                if (receiverRegistered) return
+                runCatching {
+                    val r = object : BroadcastReceiver() {
+                        override fun onReceive(c: Context?, intent: Intent?) {
+                            intent ?: return
+                            if (intent.action != ACTION_PER_SYNC) return
+                            val next = HashMap<String, Int>()
+                            for (k in arrayOf("push", "horse", "pullup", "custom")) {
+                                val v = intent.getIntExtra("per_$k", -1)
+                                if (v > 0) next[k] = v
+                            }
+                            if (next.isNotEmpty()) perMap = perMap + next
+                        }
+                    }
+                    val f = IntentFilter(ACTION_PER_SYNC)
+                    try {
+                        ctx.registerReceiver(r, f, Context.RECEIVER_EXPORTED)
+                    } catch (t: Throwable) {
+                        ctx.registerReceiver(r, f)
+                    }
+                    receiverRegistered = true
+                }
+            }
         }
 
         private fun log(msg: String) {
@@ -173,72 +349,107 @@ class DayTallyXposed : IXposedHookLoadPackage {
                         val ev = param.args.getOrNull(0) as? MotionEvent ?: return
                         val ctx = v.context?.applicationContext ?: return
                         val root = v.rootView ?: v
+                        ensureReceiver(ctx)
 
                         when (ev.actionMasked) {
                             MotionEvent.ACTION_DOWN -> {
-                                // 同一个手势会经过多层 View，已经在处理就跳过
-                                if (pressKey != null) {
+                                /* DOWN 会沿着视图树逐层触发本钩子。同一手势的每一层共享同一个
+                                   downTime，用它区分「同一手势的另一层」和「新手势」：
+                                   前者直接吃掉，后者无条件重置状态——这样即使某次 UP 丢失，
+                                   钩子也不会被一个残留的 pressKey 永久卡死。 */
+                                val sameGesture = pressKey != null && ev.downTime == pressDownTime
+                                if (sameGesture) {
                                     param.result = true
                                     return
+                                }
+                                if (pressKey != null) {
+                                    pressPending?.let { pressHost?.removeCallbacks(it) }
+                                    pressPending = null
+                                    pressHost?.let { restore(it) }
+                                    pressKey = null
+                                    pressHost = null
                                 }
                                 val hit = hitTest(root, ev.rawX, ev.rawY)
                                 if (hit == null) {
                                     val now = SystemClock.uptimeMillis()
                                     if (now - lastLogAt > 400) {
                                         lastLogAt = now
-                                        log("MISS cls=${v.javaClass.name} xy=${ev.rawX.toInt()},${ev.rawY.toInt()} chain=${chainOf(root, ev.rawX, ev.rawY)}")
+                                        log("MISS cls=${v.javaClass.name} xy=${ev.rawX.toInt()},${ev.rawY.toInt()}")
                                     }
                                     return
                                 }
+                                val token = pressToken.incrementAndGet()
                                 pressKey = hit.first
                                 pressHost = hit.second
                                 pressAt = SystemClock.uptimeMillis()
+                                pressDownTime = ev.downTime
                                 pressX = ev.rawX
                                 pressY = ev.rawY
                                 fired = false
-                                param.result = true           // 吃掉：桌面完全收不到这次手势
-                                val host = hit.second
+                                param.result = true
+                                squash(hit.second)
+
                                 val key = hit.first
-                                v.postDelayed({
-                                    if (fired || pressKey != key) return@postDelayed
+                                val host = hit.second
+                                val task = Runnable {
+                                    if (token != pressToken.get() || pressKey != key) return@Runnable
                                     fired = true
                                     val c = host.context?.applicationContext ?: ctx
                                     send(c, ACTION_REMOVE, key)
-                                    bump(host)
+                                    vibrate(host, 20)                       // HTML: haptic(20)
+                                    val per = perMap[key] ?: 0
+                                    if (per > 0) floatText(root, host, "−$per", SUB_COLOR)
                                     val now = SystemClock.uptimeMillis()
                                     if (now - lastLogAt > 300) {
                                         lastLogAt = now
                                         log("LONG key=$key")
                                     }
-                                }, LONG_PRESS_MS)
+                                }
+                                pressPending = task
+                                host.postDelayed(task, LONG_PRESS_MS)
                             }
 
                             MotionEvent.ACTION_MOVE -> {
                                 if (pressKey == null) return
                                 if (Math.abs(ev.rawX - pressX) > SLOP || Math.abs(ev.rawY - pressY) > SLOP) {
-                                    pressKey = null                 // 划走了，放弃这次
+                                    pressPending?.let { pressHost?.removeCallbacks(it) }
+                                    pressPending = null
+                                    pressHost?.let { restore(it) }
+                                    pressKey = null
                                 }
                                 param.result = true
                             }
 
                             MotionEvent.ACTION_UP -> {
                                 val key = pressKey ?: return
-                                val held = SystemClock.uptimeMillis() - pressAt
-                                if (!fired && held < LONG_PRESS_MS + 120) {
+                                pressPending?.let { pressHost?.removeCallbacks(it) }
+                                pressPending = null
+                                val host = pressHost
+                                if (!fired && host != null) {
                                     send(ctx, ACTION_ADD, key)
+                                    vibrate(host, 12)                       // HTML: haptic(12)
+                                    popNumber(host)
+                                    val per = perMap[key] ?: 0
+                                    if (per > 0) floatText(root, host, "+$per", ADD_COLOR)
                                     val now = SystemClock.uptimeMillis()
                                     if (now - lastLogAt > 300) {
                                         lastLogAt = now
-                                        log("TAP key=$key held=$held")
+                                        log("TAP key=$key held=${SystemClock.uptimeMillis() - pressAt}")
                                     }
                                 }
+                                host?.let { restore(it) }
                                 pressKey = null
+                                pressHost = null
                                 param.result = true
                             }
 
                             MotionEvent.ACTION_CANCEL -> {
                                 if (pressKey == null) return
+                                pressPending?.let { pressHost?.removeCallbacks(it) }
+                                pressPending = null
+                                pressHost?.let { restore(it) }
                                 pressKey = null
+                                pressHost = null
                                 param.result = true
                             }
                         }
@@ -246,6 +457,6 @@ class DayTallyXposed : IXposedHookLoadPackage {
                 }
             )
         }.onFailure { log("hook failed: $it") }
-        log("long-press hook installed")
+        log("long-press hook installed (200ms, float text, haptics)")
     }
 }

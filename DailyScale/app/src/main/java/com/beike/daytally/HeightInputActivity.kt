@@ -48,6 +48,8 @@ class HeightInputActivity : Activity() {
             )
         )
         buildSheet()
+        /* 弹窗出现的这一刻给一次反馈：桌面大卡与今日页共用这一个落点，手感天然一致 */
+        sound.sheetOpen()
     }
 
     private fun dp(v: Float) = Ui.dp(this, v)
