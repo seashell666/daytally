@@ -3,7 +3,9 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical">
+    android:orientation="vertical"
+    android:paddingTop="16dp"
+    android:paddingBottom="16dp">
 
     <!-- 上下两段弹性空白，把卡片挤在正中间（对应「卡片外不属于卡片范围」） -->
     <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="vertical" />
