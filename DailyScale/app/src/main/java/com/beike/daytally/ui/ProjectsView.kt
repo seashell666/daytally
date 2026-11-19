@@ -139,7 +139,7 @@ class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: Proje
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
         val sub = TextView(context).apply {
-            text = "所有记录项目 · 长按5秒项目进入设置"
+            text = "所有记录项目 · 长按标题或底栏「项目」5 秒进设置"
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f * Ui.S)
             setTextColor(C.INK3)
             letterSpacing = 0.04f
@@ -292,11 +292,12 @@ class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: Proje
         if (editable) {
             // 单击延迟 250ms 弹纵轴上限，期间来双击则改开通用编辑（与原型一致）
             card.setOnClickListener {
+                sound.tap()     // 每点必震：单击一下、双击两下
                 val now = android.os.SystemClock.uptimeMillis()
                 if (now - lastTap < 300L) {
                     cardClickTimer?.let { handler.removeCallbacks(it) }
                     cardClickTimer = null
-                    sound.tap(); openEditSheet(m)
+                    openEditSheet(m)
                 } else {
                     val r = Runnable { cardClickTimer = null; openMaxGroupsSheet(m) }
                     cardClickTimer = r
@@ -437,14 +438,16 @@ class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: Proje
         }
         val commit = {
             m.maxGroups = et.text.toString().trim().toInt()
-            repo.save(); sound.save(); render()
+            repo.save(); render()          // 静默保存：边打字边存，不震不响
         }
         debounceSave(et, 700, valid) { commit() }
+        /* 只有「完成」或点空白退出时才给一记震动+音效 */
+        val exit = { if (valid()) commit(); sound.save(); closeOverlay {} }
         et.setOnEditorActionListener { _, a, _ ->
-            if (a == EditorInfo.IME_ACTION_DONE) { if (valid()) commit(); closeOverlay {}; true } else false
+            if (a == EditorInfo.IME_ACTION_DONE) { exit(); true } else false
         }
         shell.addView(et)
-        showOverlay(shell) { if (valid()) commit() }
+        showOverlay(shell) { if (valid()) commit(); sound.save() }
         focusAndShowKeyboard(et)
     }
 
@@ -494,49 +497,63 @@ class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: Proje
             m.name = nameEt.text.toString().trim()
             m.per = perEt.text.toString().trim().toInt()
             m.unit = unit
-            repo.save(); sound.save(); render()
+            repo.save(); render()          // 静默保存
         }
         debounceSave(nameEt, 700, valid) { commit() }
         debounceSave(perEt, 700, valid) { commit() }
-        val act = { if (valid()) commit(); closeOverlay {} }
+        val act = { if (valid()) commit(); sound.save(); closeOverlay {} }
         nameEt.setOnEditorActionListener { _, a, _ ->
             if (a == EditorInfo.IME_ACTION_DONE) { act(); true } else false
         }
         perEt.setOnEditorActionListener { _, a, _ ->
             if (a == EditorInfo.IME_ACTION_DONE) { act(); true } else false
         }
-        showOverlay(shell) { if (valid()) commit() }
+        showOverlay(shell) { if (valid()) commit(); sound.save() }
         focusAndShowKeyboard(nameEt)
     }
 
+    /**
+     * 长按项目卡片：清空重置确认弹窗。
+     * 1:1 复刻 HTML 原型——居中白卡、标题「清空「XX」？」、灰色说明、一条全宽渐变「清空重置」，
+     * 没有取消按钮，点弹窗外即取消。
+     */
     private fun openConfirmReset(m: Metric) {
-        val shell = sheetShell()
-        shell.addView(sheetTitle("清空全部记录"))
-        val tip = TextView(context).apply {
-            text = "将清空「${m.name}」全部历史数据，此操作不可恢复。"
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f * Ui.S)
-            setTextColor(C.INK2)
-            setPadding(0, 0, 0, dp(18f))
+        val shell = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            background = context.getDrawable(R.drawable.bg_sheet)
+            setPadding(dp(21f), dp(23.5f), dp(21f), dp(21f))
         }
-        shell.addView(tip)
-        val row = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.END
-        }
-        val cancel = TextView(context).apply {
-            text = "取消"; setTextColor(C.INK2); setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f * Ui.S)
-            setPadding(dp(16f), dp(10f), dp(16f), dp(10f))
-            setOnClickListener { closeOverlay {} }
-        }
-        val ok = TextView(context).apply {
-            text = "清空"; setTextColor(Color.WHITE); setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f * Ui.S)
-            setBackgroundResource(R.drawable.bg_pill_btn)
-            setPadding(dp(18f), dp(10f), dp(18f), dp(10f))
+        shell.addView(TextView(context).apply {
+            text = "清空「${m.name}」？"
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f * Ui.S)
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(C.INK)
+            gravity = Gravity.CENTER
+        })
+        shell.addView(TextView(context).apply {
+            text = "这个项目的全部组数会清零，累计和进度环归零，这个操作不能撤销。"
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f * Ui.S)
+            setTextColor(C.INK3)
+            gravity = Gravity.CENTER
+            setLineSpacing(0f, 1.7f)
+            setPadding(0, dp(7f * Ui.S), 0, 0)
+        })
+        shell.addView(TextView(context).apply {
+            text = "清空重置"
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14.5f * Ui.S)
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(Color.WHITE)
+            letterSpacing = 0.05f
+            gravity = Gravity.CENTER
+            background = context.getDrawable(R.drawable.bg_confirm_btn)
+            setPadding(0, dp(14f * Ui.S), 0, dp(14f * Ui.S))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = dp(19f * Ui.S) }
             setOnClickListener {
-                repo.resetProject(m); sound.save(); render(); closeOverlay {}
+                repo.resetProject(m); sound.reset(); render(); closeOverlay {}
             }
-        }
-        row.addView(cancel); row.addView(ok)
-        shell.addView(row)
+        })
         showOverlay(shell)
     }
 }

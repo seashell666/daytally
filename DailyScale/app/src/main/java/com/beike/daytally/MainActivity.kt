@@ -72,7 +72,9 @@ class MainActivity : AppCompatActivity() {
         content.addView(settings)
 
         buildTabs(main.findViewById(R.id.tabbar))
-        switchView("home")
+        /* 上次停在设置页就还回设置页；其他页面一律回今天页 */
+        val lastView = getSharedPreferences("ds_cfg", MODE_PRIVATE).getString("last_view", "home")
+        switchView(if (lastView == "settings") "settings" else "home")
         handleWidgetIntent(intent)
         /* 打开 App 就把桌面组件刷一遍，保证组件和 App 内数据永远一致 */
         com.beike.daytally.widget.WidgetRefresh.refreshAll(this)
@@ -172,6 +174,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun switchView(key: String) {
         current = key
+        /* 记住停在哪一页：进程被杀后重新进来还能回到设置页 */
+        getSharedPreferences("ds_cfg", MODE_PRIVATE).edit().putString("last_view", key).apply()
         home.visibility = if (key == "home") View.VISIBLE else View.GONE
         trend.visibility = if (key == "trend") View.VISIBLE else View.GONE
         projects.visibility = if (key == "projects") View.VISIBLE else View.GONE

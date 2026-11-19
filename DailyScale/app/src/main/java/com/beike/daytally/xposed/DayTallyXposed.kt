@@ -54,7 +54,7 @@ class DayTallyXposed : IXposedHookLoadPackage {
         private const val SELF_PKG = "com.beike.daytally"
 
         /** 长按阈值：0.2 秒（用户要求，原 380ms） */
-        private const val LONG_PRESS_MS = 100L
+        private const val LONG_PRESS_MS = 150L
         private const val SLOP = 60f
 
         private const val ADD_COLOR = 0xFFC9414E.toInt()   // HTML: '#C9414E'
@@ -636,6 +636,6 @@ class DayTallyXposed : IXposedHookLoadPackage {
                 }
             )
         }.onFailure { log("hook failed: $it") }
-        log("long-press hook installed (200ms, float text, haptics)")
+        log("long-press hook installed (${LONG_PRESS_MS}ms, float text, haptics)")
     }
 }

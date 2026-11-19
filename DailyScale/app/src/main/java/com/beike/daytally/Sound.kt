@@ -66,4 +66,6 @@ class Sound private constructor(ctx: Context) {
         thread { Thread.sleep(90); beep(990.0, 120, 0.13) }
     }
     fun error() { vibrate(30); beep(220.0, 160, 0.14, "square") }
+    /** 项目页清空重置：对应原型 haptic(25) + beep(300, .12) */
+    fun reset() { vibrate(25); beep(300.0, 120, 0.13, "sine") }
 }

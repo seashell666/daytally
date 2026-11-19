@@ -46,7 +46,6 @@ class SettingsView(
     fun render() {
         content.removeAllViews()
         content.addView(buildHeader())
-        content.addView(buildHint())
         content.addView(buildHookSwitch())
         content.addView(buildVersion())
     }
@@ -94,27 +93,16 @@ class SettingsView(
         return row
     }
 
-    private fun buildHint(): View = TextView(context).apply {
-        text = "这些开关只影响桌面组件的行为，不动 App 内的任何记录。"
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f * Ui.S)
-        setTextColor(C.INK3)
-        setLineSpacing(0f, 1.5f)
-        setPadding(dp(2f), 0, dp(2f), dp(12f))
-    }
-
-    /** 桌面长按接管开关：关掉即刻恢复原生长按，不用重启桌面 */
+    /** 桌面长按接管开关：关掉即刻恢复原生长按，不用重启桌面。样式沿用项目页那版，一行说完 */
     private fun buildHookSwitch(): View {
-        val card = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            background = context.getDrawable(R.drawable.bg_week)
-            setPadding(dp(16f), dp(15f), dp(16f), dp(13f))
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { bottomMargin = dp(12f) }
-        }
-        val head = LinearLayout(context).apply {
+        val row = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            background = context.getDrawable(R.drawable.bg_week)
+            setPadding(dp(16f), dp(15f), dp(12f), dp(15f))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = dp(12f); bottomMargin = dp(20f) }
         }
         val col = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
         col.addView(TextView(context).apply {
@@ -129,8 +117,8 @@ class SettingsView(
             setTextColor(C.INK3)
             setPadding(0, dp(4f), 0, 0)
         })
-        head.addView(col, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        head.addView(android.widget.Switch(context).apply {
+        row.addView(col, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        row.addView(android.widget.Switch(context).apply {
             isChecked = ProjectsView.hookEnabled(context)
             setOnCheckedChangeListener { _, on ->
                 ProjectsView.setHookEnabled(context, on)
@@ -138,16 +126,7 @@ class SettingsView(
                 sound.tap()
             }
         })
-        card.addView(head)
-        card.addView(TextView(context).apply {
-            text = "关模块后长按不恢复是 LSPosed 的机制：钩子已经注进桌面进程，关模块只影响下次注入。" +
-                "这个开关会直接通知桌面进程里的钩子下线，立刻拿回原生长按，不用重启手机。"
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f * Ui.S)
-            setTextColor(C.INK3)
-            setLineSpacing(0f, 1.55f)
-            setPadding(0, dp(10f), 0, 0)
-        })
-        return card
+        return row
     }
 
     private fun buildVersion(): View = TextView(context).apply {
