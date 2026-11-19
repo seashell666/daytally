@@ -37,7 +37,7 @@ class HeightInputActivity : Activity() {
         sound = Sound.get(this)
         window.setSoftInputMode(
             WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE or
-                    WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+                    WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
         )
 
         overlay = FrameLayout(this)
@@ -98,15 +98,16 @@ class HeightInputActivity : Activity() {
 
         val box = FrameLayout(this).apply { addView(shell) }
         overlay.addView(mask)
-        // 弹窗贴屏幕上方，键盘占下半屏，避免被压缩重叠
+        /* 弹窗上下居中于整屏。用 ADJUST_NOTHING 保证键盘弹出时窗口不被压缩，
+           否则 Gravity.CENTER 会变成「居中于键盘上方那块可用区」，看起来仍偏上。 */
         overlay.addView(
             box,
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT,
-                Gravity.TOP
+                Gravity.CENTER
             ).apply {
-                setMargins(dp(24f), dp(150f), dp(24f), dp(24f))
+                setMargins(dp(24f), 0, dp(24f), 0)
             }
         )
 

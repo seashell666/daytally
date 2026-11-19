@@ -165,7 +165,14 @@ body::before{
 .app-head h2{font-family:var(--num);font-size:25px;font-weight:800;letter-spacing:-.01em}
 .icon-btn{width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:#fff;display:grid;place-items:center;cursor:pointer;color:var(--ink2);transition:transform .16s var(--spring),background .2s}
 .icon-btn:active{transform:scale(.9);background:#F6F1FF}
-.app-body{flex:1;padding:4px 16px 0;display:flex;flex-direction:column;gap:8px;overflow:hidden;min-height:0;scrollbar-width:none}
+/* 项目页标题区：整块是「长按 5 秒进设置」的命中区（真机上就是这个 LinearLayout），
+   按住时后半句「长按项目进入设置」变红，看得见自己在长按 */
+.app-head .head-hold{padding:2px 0;border-radius:10px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent}
+.app-head .head-hold .hold-hint{color:var(--ink3);transition:color .18s var(--ease)}
+.app-head .head-hold.holding .hold-hint{color:var(--red)}
+.app-body{flex:1;padding:4px 16px 0;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;min-height:0;scrollbar-width:none}
+/* 5 个间隙等距：身高卡之后 1 个 + 4 张计数卡的卡间 3 个 + 末卡与底栏之间 1 个，
+   全部由 space-between 均分剩余空间（真机上就是这 5 个 weight 弹簧） */
 .app-body::-webkit-scrollbar{display:none}
 
 /* 首页计数卡 */
@@ -194,7 +201,8 @@ body::before{
 .wm-grid .corner{font-size:10px;color:var(--ink3)}
 
 /* 项目页 */
-.proj-list{flex:1;padding:6px 16px 14px;overflow:auto;display:flex;flex-direction:column;gap:12px}
+.proj-list{flex:1;padding:6px 16px 12px;overflow:auto;display:flex;flex-direction:column;gap:12px}
+/* 4 个卡间 + 末卡与底栏之间 1 个（由底部 padding 提供），合计 5 个间隙全部 12px */
 .proj-card{border-radius:20px;background:#fff;border:1px solid rgba(120,96,170,.1);padding:14px 16px;display:flex;align-items:center;gap:12px;flex:1;min-height:0}
 .proj-card .ic{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;flex:none;background:var(--lilac-2);color:var(--purple-deep)}
 .proj-card .ic svg{width:21px;height:21px}
@@ -305,6 +313,16 @@ body::before{
 .switch.on .track{background:var(--red)}
 .switch.on .track::after{transform:translateX(16px)}
 
+/* ---------- 隐藏设置页（长按项目标题区或底栏「项目」5 秒进入，不给底栏入口） ---------- */
+.set-body{flex:1;padding:4px 16px 0;display:flex;flex-direction:column;min-height:0}
+.set-row{border-radius:18px;padding:13px 14px;display:flex;align-items:center;gap:12px;background:linear-gradient(152deg,#FCFBFF,#F2EBFE 58%,#E8DFFB);box-shadow:var(--shadow-card);cursor:pointer;transition:transform .16s var(--spring)}
+.set-row:active{transform:scale(.985)}
+.set-row .set-ic{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;flex:none;background:rgba(139,118,217,.16);color:var(--purple-deep)}
+.set-row .set-t{flex:1;min-width:0}
+.set-row .set-nm{font-size:14px;font-weight:600}
+.set-row .set-ds{font-size:11px;color:var(--ink3);margin-top:3px;line-height:1.45}
+.set-ver{margin-top:auto;padding:18px 0 20px;text-align:center;font-size:11px;color:var(--ink3);letter-spacing:.04em}
+
 @media (max-width:1200px){
   .stage{grid-template-columns:repeat(2,368px);gap:34px}
   .lead{grid-template-columns:1fr 1fr}
@@ -327,7 +345,7 @@ body::before{
 
   <!-- ===== 展板头部 ===== -->
   <header class="masthead">
-    <div class="kicker"><span class="dot"></span>设计交付 · 第 10 版原型1<span class="sep"></span>确认后进入 Kotlin 开发</div>
+    <div class="kicker"><span class="dot"></span>设计交付 · 第 11 版原型<span class="sep"></span>确认后进入 Kotlin 开发</div>
     <div class="head-row">
       <div class="title-block">
         <div class="appicon"><img src="assets/icon-a.png" alt="日刻图标"></div>
@@ -482,8 +500,8 @@ body::before{
             <div class="view" id="view-projects">
               <div class="app-head">
                 <div class="row">
-                  <div>
-                    <div class="d">所有记录项目</div>
+                  <div class="head-hold" data-hold-settings>
+                    <div class="d">所有日刻项目 · <span class="hold-hint">长按项目进入设置</span></div>
                     <h2>项目</h2>
                   </div>
                   <button class="icon-btn" data-act="go-home" aria-label="返回">
@@ -492,6 +510,34 @@ body::before{
                 </div>
               </div>
               <div class="proj-list" data-region="projects"></div>
+            </div>
+
+            <!-- 视图：设置（长按标题区或底栏「项目」5 秒进入，平时隐藏） -->
+            <div class="view" id="view-settings">
+              <div class="app-head">
+                <div class="row">
+                  <div>
+                    <div class="d">日刻 · 桌面与模块</div>
+                    <h2>设置</h2>
+                  </div>
+                  <button class="icon-btn" data-act="go-projects" aria-label="返回">
+                    <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 5 7 12l7 7"/></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="set-body">
+                <div class="set-row" data-act="toggle-hook">
+                  <div class="set-ic">
+                    <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="3.6" width="16" height="16.8" rx="4.5"/><path d="M8.4 9.2h7.2M8.4 13.6h4.6"/></svg>
+                  </div>
+                  <div class="set-t">
+                    <div class="set-nm">接管桌面长按</div>
+                    <div class="set-ds">桌面上长按方块退一组；关掉即刻恢复原生</div>
+                  </div>
+                  <div class="switch on" id="sw-hook"><span class="track"></span></div>
+                </div>
+                <div class="set-ver">日刻 v1.2.3 · 预览版</div>
+              </div>
             </div>
 
             <div class="tabbar">
@@ -908,6 +954,7 @@ function renderHome(){
       ${stripHTML(h, hcs)}
     </div>
     ${counters}
+    <div style="height:0;flex:none" aria-hidden="true"></div>
   `;
 }
 
@@ -1167,7 +1214,7 @@ function removeGroup(key, el){
 }
 function switchView(v){
   S.view = v;
-  document.querySelectorAll('#view-home,#view-trend,#view-projects')
+  document.querySelectorAll('#view-home,#view-trend,#view-projects,#view-settings')
     .forEach(el => el.classList.toggle('on', el.id === 'view-' + v));
   document.querySelectorAll('.tabbar .tab')
     .forEach(t => t.classList.toggle('on', t.dataset.act === 'go-' + v));
@@ -1403,6 +1450,39 @@ document.addEventListener('contextmenu', e => {
 });
 
 /* ============================================================
+   隐藏设置页入口（与真机一致的两条通道）
+   · 项目页标题区副标题行「所有日刻项目 · 长按项目进入设置」整行按住 5 秒
+   · 底栏「项目」Tab 按住 5 秒（任何页面都行）
+   按住期间副标题后半段变红，给到「真的在长按」的反馈
+   ============================================================ */
+let settingsTimer = null, settingsHoldEl = null, settingsFired = false;
+function settingsPressStart(el){
+  settingsHoldEl = el;
+  el.classList.add('holding');
+  settingsTimer = setTimeout(() => {
+    settingsTimer = null;
+    settingsFired = true;
+    if(settingsHoldEl){ settingsHoldEl.classList.remove('holding'); settingsHoldEl = null; }
+    haptic(16); beep(760, .08, .12);
+    switchView('settings');
+    tabLastTap = {};
+  }, 5000);
+}
+function settingsPressEnd(){
+  if(settingsTimer){ clearTimeout(settingsTimer); settingsTimer = null; }
+  if(settingsHoldEl){ settingsHoldEl.classList.remove('holding'); settingsHoldEl = null; }
+}
+document.addEventListener('pointerdown', e => {
+  settingsFired = false;
+  const hold = e.target.closest('[data-hold-settings]');
+  const tab = e.target.closest('.tabbar .tab');
+  const tabIsProjects = tab && tab.dataset.act === 'go-projects';
+  if(hold || tabIsProjects) settingsPressStart(hold || tab);
+});
+document.addEventListener('pointerup', settingsPressEnd);
+document.addEventListener('pointercancel', settingsPressEnd);
+
+/* ============================================================
    点击事件
    ============================================================ */
 document.addEventListener('click', e => {
@@ -1428,8 +1508,9 @@ document.addEventListener('click', e => {
   }
   else if(act === 'close-sheet'){ closeSheet(screen); }
   else if(act === 'save-height'){ saveHeight(screen); }
-  else if(act === 'go-home'){ switchView('home'); tabLastTap = {}; }
+  else if(act === 'go-home'){ if(settingsFired){ settingsFired = false; return; } switchView('home'); tabLastTap = {}; }
   else if(act === 'go-trend' || act === 'go-projects'){
+    if(settingsFired){ settingsFired = false; return; }   // 长按进了设置页，忽略随后的点击
     const target = act === 'go-trend' ? 'trend' : 'projects';
     const now = Date.now();
     if(tabLastTap[act] && now - tabLastTap[act] < 420){
@@ -1459,6 +1540,12 @@ document.addEventListener('click', e => {
   }
   else if(act === 'cancel-confirm'){ cancelConfirm(screen); }
   else if(act === 'do-reset'){ resetProject(screen); }
+  else if(act === 'toggle-hook'){
+    const sw = document.getElementById('sw-hook');
+    const on = sw.classList.toggle('on');
+    S.hook = on;
+    haptic(10); beep(988, .07, .12);
+  }
   else if(act === 'close-edit'){ dismissEdit(screen); }
   else if(act === 'unit-个' || act === 'unit-招' || act === 'unit-分钟'){
     el.closest('.unit-switch').querySelectorAll('button')

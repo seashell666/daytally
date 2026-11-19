@@ -1,13 +1,16 @@
 package com.beike.daytally.xposed
 
 import android.animation.ValueAnimator
+import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetHostView
 import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProviderInfo
 import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.widget.RemoteViews
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -25,6 +28,7 @@ import androidx.core.animation.doOnEnd
 import java.util.concurrent.atomic.AtomicInteger
 import de.robv.android.xposed.IXposedHookLoadPackage
 import de.robv.android.xposed.XC_MethodHook
+import de.robv.android.xposed.XC_MethodHook.MethodHookParam
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
 import de.robv.android.xposed.callbacks.XC_LoadPackage
@@ -62,12 +66,17 @@ class DayTallyXposed : IXposedHookLoadPackage {
 
         @Volatile private var pressKey: String? = null
         @Volatile private var pressHost: View? = null
+        /** 实际接管事件的那一层 View（可能等于 pressHost，也可能是外层容器） */
+        @Volatile private var pressLayer: View? = null
         @Volatile private var pressAt = 0L
         @Volatile private var pressDownTime = 0L
         @Volatile private var pressX = 0f
         @Volatile private var pressY = 0f
         @Volatile private var fired = false
         @Volatile private var lastLogAt = 0L
+        @Volatile private var lastScan = 0L
+        @Volatile private var lastEvt = 0L
+        @Volatile private var lastHit = 0L
 
         /** 每一轮按压的唯一编号：旧计时器到点时编号对不上就作废，修掉连点误减组 */
         private val pressToken = AtomicInteger(0)
@@ -164,46 +173,255 @@ class DayTallyXposed : IXposedHookLoadPackage {
         /** 反射取 appWidgetId：MIUI 的组件容器不一定叫 AppWidgetHostView，但都带这个字段 */
         private fun widgetIdOf(v: View): Int {
             (v as? AppWidgetHostView)?.let { return it.appWidgetId }
-            return runCatching { XposedHelpers.getIntField(v, "mAppWidgetId") as Int }.getOrDefault(-1)
+            /* MIUI 桌面在 AppWidgetHostView 外面又套了一层 LauncherWidgetView，
+               真正的 host 存在 mAppWidgetHostView 字段里。 */
+            runCatching {
+                val host = XposedHelpers.getObjectField(v, "mAppWidgetHostView") as? AppWidgetHostView
+                if (host != null) return host.appWidgetId
+            }
+            runCatching {
+                val host = XposedHelpers.getObjectField(v, "mHostView") as? AppWidgetHostView
+                if (host != null) return host.appWidgetId
+            }
+            return runCatching { XposedHelpers.getIntField(v, "mAppWidgetId") }.getOrDefault(-1)
         }
 
+        /** View → key 缓存：keyOfHost 要跨进程查 AppWidgetInfo，放在触摸主线程必须缓存 */
+        private val hostKeyCache = java.util.WeakHashMap<View, String>()
+
         /** 这个 View 是不是承载日刻方块的容器（大卡返回 null） */
+        /** 从 AppWidgetHost 创建时抓到的所有方块容器（含 appWidgetId）。
+            MIUI 桌面的 AppWidgetHostView 压根不在 DecorView 子树里（实测 rootKids=1、
+            DragContainerLayout kids=0），所以只能从「创建那一刻」登记，点按的时候按坐标反查。 */
+        private val hostViews = java.util.WeakHashMap<View, Int>()
+
         private fun keyOfHost(v: View): String? {
+            hostKeyCache[v]?.let { return it }
             val id = widgetIdOf(v)
             if (id < 0) return null
             val ctx = v.context?.applicationContext ?: return null
             val info = runCatching { AppWidgetManager.getInstance(ctx).getAppWidgetInfo(id) }.getOrNull() ?: return null
             val provider = info.provider?.className ?: return null
             if (!provider.startsWith("$SELF_PKG.widget.")) return null
+            val k = keyOf(provider) ?: return null
+            hostKeyCache[v] = k
+            return k
+        }
+
+        /** 按 appWidgetId 反查方块 key（不依赖 View 在不在树里） */
+        private fun keyOfHostId(ctx: Context, id: Int): String? {
+            if (id < 0) return null
+            val info = runCatching { AppWidgetManager.getInstance(ctx).getAppWidgetInfo(id) }.getOrNull() ?: return null
+            val provider = info.provider?.className ?: return null
+            if (!provider.startsWith("$SELF_PKG.widget.")) return null
             return keyOf(provider)
         }
 
-        private fun hitTest(root: View, x: Float, y: Float): Pair<String, View>? {
-            var found: Pair<String, View>? = null
+        /**
+         * 按屏幕坐标反查已登记的方块容器。
+         * 实测（MIUI 13 / 小米 11）：LauncherAppWidgetHostView 的 getLocationOnScreen
+         * 报的 y 是「方块中心 + 半个高度」，真实中心 y = loc.y - height/2；
+         * x 偏差 20~70px。所以这里用「最近邻 + 半径阈值」判定，比矩形包含稳。
+         */
+        private fun hitHost(ctx: Context, sx: Float, sy: Float): Pair<String, View>? {
+            if (hostViews.isEmpty()) return null
             val loc = IntArray(2)
+            var best: Pair<String, View>? = null
+            var bestD = 210f
+            val dbg = StringBuilder()
+            for ((hv, id) in hostViews.entries.toList()) {
+                val h = hv ?: continue
+                if (h.visibility != View.VISIBLE) continue
+                val k = keyOfHostId(ctx, id) ?: continue
+                h.getLocationOnScreen(loc)
+                val cx = loc[0] + h.width / 2f
+                val cy = loc[1] - h.height / 2f
+                val d = Math.hypot((sx - cx).toDouble(), (sy - cy).toDouble()).toFloat()
+                dbg.append("$k@${cx.toInt()},${cy.toInt()} d=${d.toInt()};")
+                if (d < bestD) {
+                    bestD = d
+                    best = k to h
+                }
+            }
+            val now = SystemClock.uptimeMillis()
+            if (now - lastScan > 300) {
+                lastScan = now
+                log("SCAN raw=${sx.toInt()},${sy.toInt()} hit=${best?.first} d=${bestD.toInt()} $dbg")
+            }
+            return best
+        }
 
-            fun walk(v: View) {
-                if (found != null) return
-                if (v.visibility == View.VISIBLE) {
-                    v.getLocationOnScreen(loc)
-                    if (x >= loc[0] && x <= loc[0] + v.width && y >= loc[1] && y <= loc[1] + v.height) {
-                        val k = keyOfHost(v)
-                        if (k != null) {
-                            found = k to v
-                            return
+        /** 命中点最上层的 View（局部坐标版，从后往前下钻 = 后添加的在上层） */
+        private fun deepestAtLocal(root: View, sx: Float, sy: Float): View? {
+            val rl = IntArray(2)
+            root.getLocationOnScreen(rl)
+            var res: View? = null
+
+            fun walk(v: View, x: Float, y: Float): Boolean {
+                if (v.visibility != View.VISIBLE) return false
+                if (x < 0f || y < 0f || x >= v.width.toFloat() || y >= v.height.toFloat()) return false
+                var childHit = false
+                if (v is ViewGroup) {
+                    var i = v.childCount - 1
+                    while (i >= 0) {
+                        val c = v.getChildAt(i)
+                        if (walk(c, x + v.scrollX - c.left, y + v.scrollY - c.top)) {
+                            childHit = true
+                            break
                         }
+                        i--
                     }
+                }
+                if (!childHit) {
+                    res = v
+                    return true
+                }
+                return true
+            }
+            walk(root, sx - rl[0], sy - rl[1])
+            return res
+        }
+
+        /** 一次性把所有方块容器的屏幕几何打出来（含逐级 scale 累积），用于校正命中 */
+        private fun scanDebug() {
+            val loc = IntArray(2)
+            val sb = StringBuilder()
+            for ((hv, id) in hostViews.entries.toList()) {
+                val h = hv ?: continue
+                val c = h.context?.applicationContext ?: continue
+                val k = keyOfHostId(c, id) ?: continue
+                h.getLocationOnScreen(loc)
+                var sxx = 1f
+                var syy = 1f
+                var p: View? = h
+                var d = 0
+                while (p != null && d < 8) {
+                    sxx *= p.scaleX
+                    syy *= p.scaleY
+                    p = p.parent as? View
+                    d++
+                }
+                sb.append("$k@${loc[0]},${loc[1]} ${h.width}x${h.height} sc=${sxx}x${syy} vis=${h.visibility};")
+            }
+            log("GEO $sb")
+        }
+
+        /** 反射拿当前进程所有窗口的 root（文件夹、多任务往往是独立窗口，不在桌面 DecorView 里） */
+        private fun allRootViews(): List<View> {
+            val out = ArrayList<View>()
+            runCatching {
+                val c = Class.forName("android.view.WindowManagerGlobal")
+                val m = c.getDeclaredMethod("getInstance").apply { isAccessible = true }
+                val inst = m.invoke(null)
+                val f = c.getDeclaredField("mViews").apply { isAccessible = true }
+                val views = f.get(inst) as? Array<*>
+                views?.forEach { if (it is View) out.add(it) }
+            }
+            return out
+        }
+
+        /** 文件夹 / 多任务 / 任务卡盖在桌面上时为 true —— 按类名判定，完全不依赖坐标 */
+        private fun overlayVisible(root: View?): Boolean {
+            if (root != null && findOverlay(root, 0)) {
+                log("OVERLAY in-root")
+                return true
+            }
+            for (r in allRootViews()) {
+                if (r === root || r.visibility != View.VISIBLE) continue
+                if (findOverlay(r, 0)) {
+                    log("OVERLAY in-win ${r.javaClass.simpleName}")
+                    return true
+                }
+            }
+            return false
+        }
+
+        private fun findOverlay(v: View, d: Int): Boolean {
+            if (d > 26 || v.visibility != View.VISIBLE) return false
+            val nm = v.javaClass.simpleName
+            if ((nm == "Folder" || nm.contains("Recents") || nm.contains("MultiTask") || nm.contains("TaskView"))
+                && v.width > 300 && v.height > 300
+            ) {
+                log("OVERLAY hit $nm ${v.width}x${v.height}")
+                return true
+            }
+            if (v is ViewGroup) {
+                var i = 0
+                while (i < v.childCount) {
+                    if (findOverlay(v.getChildAt(i), d + 1)) return true
+                    i++
+                }
+            }
+            return false
+        }
+
+        /** 局部坐标命中测试：完全避开 MIUI 桌面 getLocationOnScreen 偏移的坑 */
+        private fun hitTest(root: View, sx: Float, sy: Float): Pair<String, View>? {
+            val rl = IntArray(2)
+            root.getLocationOnScreen(rl)
+            var found: Pair<String, View>? = null
+            var wcount = 0
+
+            fun walk(v: View, x: Float, y: Float) {
+                if (found != null) return
+                if (v.visibility != View.VISIBLE) return
+                if (x < 0f || y < 0f || x >= v.width.toFloat() || y >= v.height.toFloat()) return
+                val k = keyOfHost(v)
+                val nm = v.javaClass.simpleName
+                if (nm.contains("Widget") || nm.contains("Host")) {
+                    if (wcount < 10) {
+                        wcount++
+                        log("WALK $nm id=${widgetIdOf(v)} key=${k ?: "-"} wh=${v.width}x${v.height} at=${x.toInt()},${y.toInt()}")
+                    }
+                }
+                if (k != null) {
+                    found = k to v
+                    return
                 }
                 if (v is ViewGroup) {
                     var i = 0
                     while (i < v.childCount) {
-                        walk(v.getChildAt(i))
+                        val c = v.getChildAt(i)
+                        walk(c, x + v.scrollX - c.left - v.translationX, y + v.scrollY - c.top - v.translationY)
                         i++
                     }
                 }
             }
-            walk(root)
+            walk(root, sx - rl[0], sy - rl[1])
             return found
+        }
+
+        /**
+         * 命中点上「最上层、最深」的可见 View。
+         * MIUI 桌面把文件夹、多任务这些浮层都加在同一个窗口的视图树里（后添加的在上层），
+         * 所以从后往前下钻就能找出此刻真正盖在这个坐标上的那个 View。
+         */
+        private fun deepestAt(v: View, x: Float, y: Float, depth: Int = 0): View? {
+            if (depth > 30 || v.visibility != View.VISIBLE) return null
+            if (v.width <= 0 || v.height <= 0) return null
+            val loc = IntArray(2)
+            v.getLocationOnScreen(loc)
+            if (x < loc[0] || x >= loc[0] + v.width || y < loc[1] || y >= loc[1] + v.height) return null
+            if (v is ViewGroup) {
+                var i = v.childCount - 1
+                while (i >= 0) {
+                    deepestAt(v.getChildAt(i), x, y, depth + 1)?.let { return it }
+                    i--
+                }
+            }
+            return v
+        }
+
+        /** child 是否在 ancestor 的子树里（含自身） */
+        private fun isUnder(child: View, ancestor: View): Boolean {
+            var p: View? = child
+            var d = 0
+            while (p != null && d < 40) {
+                if (p === ancestor) return true
+                p = p.parent as? View
+                d++
+            }
+            return false
         }
 
         /** 诊断：把该点下面所有带 appWidgetId 的容器及其位置打出来 */
@@ -356,7 +574,20 @@ class DayTallyXposed : IXposedHookLoadPackage {
                 textH = fm.descent - fm.ascent
             }
 
-            fun progress(v: Float) { t = v; invalidate() }
+            fun progress(v: Float) {
+                t = v
+                /* 只失效文字所在的小矩形：铺满整屏的 View 若每帧全屏重绘，
+                   桌面上会明显掉帧，看起来就"僵"。 */
+                val (sc0, dy0, _) = keyframe(t)
+                val halfW = textW * sc0 / 2f + stroke.strokeWidth + 4f
+                val halfH = textH * sc0 / 2f + stroke.strokeWidth + 4f
+                invalidate(
+                    (anchorX - halfW).toInt(),
+                    (anchorY + dy0 - halfH).toInt(),
+                    (anchorX + halfW).toInt(),
+                    (anchorY + dy0 + halfH).toInt()
+                )
+            }
 
             override fun onDraw(canvas: Canvas) {
                 if (text.isEmpty() || textH <= 0f) return
@@ -408,19 +639,23 @@ class DayTallyXposed : IXposedHookLoadPackage {
          * （实测 x 正确、y 少 400~500px，导致字飘到大卡上）。
          */
         private fun floatText(root: View, host: View, text: String, color: Int, sx: Float, sy: Float) {
-            val ctx = root.context ?: return
-            val parent = root as? ViewGroup ?: return
+            /* 必须挂到窗口最外层（DecorView），这样画布坐标才等于屏幕坐标；
+               挂到 DragContainerLayout 这类内层容器，它的 top 不为 0，字会整体上移。 */
+            val parent = ((root.rootView ?: root)) as? ViewGroup ?: return
+            val ctx = parent.context ?: return
             val v = FloatNumView(ctx).apply {
                 this.text = text
                 this.fillColor = color
             }
             val sizePx = 21f * 2.625f           // HTML 18px × 1.1755 ≈ 21dp
             v.measureText(sizePx)
-            val rl = IntArray(2)
-            runCatching { parent.getLocationOnScreen(rl) }
-            v.anchorX = sx - rl[0]
-            /* 方块顶 = 手指 y 往上推半个方块高；HTML 起始点是元素顶 + 4px */
-            v.anchorY = sy - host.height / 2f - rl[1] + 4f * 2.625f
+            /* 直接用屏幕坐标：DecorView 级浮层，parent 原点就是屏幕原点。
+               不要减 parent.getLocationOnScreen —— 实测桌面窗口这个值不是 0，
+               会把字拉到大卡上。 */
+            v.anchorX = sx
+            /* 方块顶 = 手指 y 往上推 200px（方块高 ~267，等于落在方块上沿略上方） */
+            v.anchorY = sy - 200f
+            log("FLOAT anchor=${v.anchorX.toInt()},${v.anchorY.toInt()} hh=${host.height} ph=${parent.height} pt=${parent.top}")
             /* 铺满整屏：绘制坐标直接用屏幕坐标，父容器的 clipChildren 才不会把飘出去的字裁掉 */
             v.layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -454,6 +689,158 @@ class DayTallyXposed : IXposedHookLoadPackage {
                 i.addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
                 ctx.sendBroadcast(i)
             }.onFailure { log("send failed: $it") }
+        }
+
+        private fun handleWidgetEvent(param: MethodHookParam) {
+            val v = param.thisObject as? View ?: return
+            val ev = param.args.getOrNull(0) as? MotionEvent ?: return
+            handleWidgetTouch(v, ev, param)
+        }
+
+        /**
+         * 直接挂在方块容器自己的 dispatchTouchEvent 上。
+         * 这是唯一正确的接法：手指没落在方块上，事件根本到不了这里，
+         * 所以文件夹、多任务、弹窗、别的应用怎么点都绝不会误触。
+         */
+        private fun handleWidgetTouch(v: View, ev: MotionEvent, param: MethodHookParam) {
+            val key = keyOfHost(v) ?: return
+            val ctx = v.context?.applicationContext ?: return
+            val root = v.rootView ?: v
+
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    ensureReceiver(ctx)
+                    if (!hookEnabled) return
+                    val token = pressToken.incrementAndGet()
+                    pressKey = key
+                    pressHost = v
+                    pressLayer = v
+                    pressAt = SystemClock.uptimeMillis()
+                    pressDownTime = ev.downTime
+                    pressX = ev.rawX
+                    pressY = ev.rawY
+                    fired = false
+                    param.result = true
+                    squash(v)
+
+                    val task = Runnable {
+                        if (token != pressToken.get() || pressKey != key) return@Runnable
+                        fired = true
+                        val c = v.context?.applicationContext ?: ctx
+                        send(c, ACTION_REMOVE, key)
+                        vibrate(v, 20)                       // HTML: haptic(20)
+                        val per = perMap[key] ?: 0
+                        if (per > 0) floatText(root, v, "−$per", SUB_COLOR, pressX, pressY)
+                        log("LONG key=$key")
+                    }
+                    pressPending = task
+                    v.postDelayed(task, LONG_PRESS_MS)
+                    log("HIT key=$key src=widget")
+                }
+
+                MotionEvent.ACTION_MOVE -> {
+                    if (pressLayer !== v) return
+                    if (pressKey == null) return
+                    if (Math.abs(ev.rawX - pressX) > SLOP || Math.abs(ev.rawY - pressY) > SLOP) {
+                        pressPending?.let { pressHost?.removeCallbacks(it) }
+                        pressPending = null
+                        runCatching { pressHost?.let { restore(it) } }
+                        pressKey = null
+                        pressHost = null
+                        pressLayer = null
+                    }
+                    param.result = true
+                }
+
+                MotionEvent.ACTION_UP -> {
+                    if (pressLayer !== v) return
+                    val k = pressKey ?: return
+                    val host = pressHost ?: v
+                    pressPending?.let { pressHost?.removeCallbacks(it) }
+                    pressPending = null
+                    if (!fired) {
+                        send(ctx, ACTION_ADD, k)
+                        vibrate(host, 12)                       // HTML: haptic(12)
+                        popNumber(host)
+                        val per = perMap[k] ?: 0
+                        if (per > 0) floatText(root, host, "+$per", ADD_COLOR, pressX, pressY)
+                        log("TAP key=$k held=${SystemClock.uptimeMillis() - pressAt}")
+                    }
+                    runCatching { restore(host) }
+                    pressKey = null
+                    pressHost = null
+                    pressLayer = null
+                    param.result = true
+                }
+
+                MotionEvent.ACTION_CANCEL -> {
+                    if (pressLayer !== v) return
+                    if (pressKey == null) return
+                    pressPending?.let { pressHost?.removeCallbacks(it) }
+                    pressPending = null
+                    runCatching { pressHost?.let { restore(it) } }
+                    pressKey = null
+                    pressHost = null
+                    pressLayer = null
+                    param.result = true
+                }
+            }
+        }
+
+        /** 挂 MIUI / 标准两种方块容器的 dispatchTouchEvent */
+        private fun hookWidgetTouch(cl: ClassLoader) {
+            /* 首选：OnLongClickAgent —— 手指落在方块上时 MIUI 必定走这里，天然精确 */
+            runCatching {
+                val c = Class.forName("com.miui.home.launcher.OnLongClickAgent", false, cl)
+                XposedHelpers.findAndHookMethod(
+                    c, "onDispatchTouchEvent", MotionEvent::class.java,
+                    object : XC_MethodHook() {
+                        override fun beforeHookedMethod(param: MethodHookParam) {
+                            runCatching {
+                                val agent = param.thisObject ?: return@runCatching
+                                val ev = param.args.getOrNull(0) as? MotionEvent ?: return@runCatching
+                                val cv = XposedHelpers.getObjectField(agent, "mClientView") as? View
+                                    ?: return@runCatching
+                                if (keyOfHost(cv) == null) return@runCatching
+                                handleWidgetTouch(cv, ev, param)
+                            }.onFailure { log("agentEvent err: ${it.message}") }
+                        }
+                    }
+                )
+                log("OnLongClickAgent hook ok")
+            }.onFailure { log("OnLongClickAgent hook fail: ${it.message}") }
+
+            val names = listOf(
+                "com.miui.home.launcher.LauncherAppWidgetHostView",
+                "com.miui.home.launcher.LauncherWidgetView"
+            )
+            for (cn in names) {
+                runCatching {
+                    val c = Class.forName(cn, false, cl)
+                    XposedHelpers.findAndHookMethod(
+                        c, "dispatchTouchEvent", MotionEvent::class.java,
+                        object : XC_MethodHook() {
+                            override fun beforeHookedMethod(param: MethodHookParam) {
+                                runCatching { handleWidgetEvent(param) }
+                                    .onFailure { log("widgetEvent err: ${it.message}") }
+                            }
+                        }
+                    )
+                    log("widget touch hook: $cn")
+                }.onFailure { log("widget touch hook fail $cn: ${it.message}") }
+            }
+            runCatching {
+                XposedHelpers.findAndHookMethod(
+                    AppWidgetHostView::class.java, "dispatchTouchEvent", MotionEvent::class.java,
+                    object : XC_MethodHook() {
+                        override fun beforeHookedMethod(param: MethodHookParam) {
+                            runCatching { handleWidgetEvent(param) }
+                                .onFailure { log("widgetEvent err: ${it.message}") }
+                        }
+                    }
+                )
+                log("AppWidgetHostView touch hook ok")
+            }.onFailure { log("AppWidgetHostView touch hook fail: ${it.message}") }
         }
 
         /** 收 App 广播过来的「每组多少个」，供浮动数字显示 */
@@ -507,69 +894,87 @@ class DayTallyXposed : IXposedHookLoadPackage {
                         val ev = param.args.getOrNull(0) as? MotionEvent ?: return
                         val ctx = v.context?.applicationContext ?: return
                         val root = v.rootView ?: v
-                        ensureReceiver(ctx)
+
+                        val __now = SystemClock.uptimeMillis()
+                        if (ev.actionMasked == MotionEvent.ACTION_DOWN && __now - lastEvt > 2000) {
+                            lastEvt = __now
+                            log("EVT cls=${v.javaClass.simpleName} en=$hookEnabled hosts=${hostViews.size}")
+                        }
 
                         when (ev.actionMasked) {
                             MotionEvent.ACTION_DOWN -> {
-                                /* DOWN 会沿着视图树逐层触发本钩子。同一手势的每一层共享同一个
-                                   downTime，用它区分「同一手势的另一层」和「新手势」：
-                                   前者直接吃掉，后者无条件重置状态——这样即使某次 UP 丢失，
-                                   钩子也不会被一个残留的 pressKey 永久卡死。 */
+                                /* 同一手势会沿视图树逐层触发本钩子，共享同一个 downTime；
+                                   第一层（必然是 DecorView）已经接管，后面每层都要把事件吃掉，
+                                   否则事件会继续流到方块容器，触发 RemoteViews 自己的点击。 */
                                 val sameGesture = pressKey != null && ev.downTime == pressDownTime
                                 if (sameGesture) {
                                     param.result = true
                                     return
                                 }
                                 if (pressKey != null) {
-                                    pressPending?.let { pressHost?.removeCallbacks(it) }
-                                    pressPending = null
-                                    pressHost?.let { restore(it) }
-                                    pressKey = null
-                                    pressHost = null
-                                }
-                                val hit = hitTest(root, ev.rawX, ev.rawY)
-                                if (hit == null) {
-                                    val now = SystemClock.uptimeMillis()
-                                    if (now - lastLogAt > 400) {
-                                        lastLogAt = now
-                                        log("MISS cls=${v.javaClass.name} xy=${ev.rawX.toInt()},${ev.rawY.toInt()}")
+                                    runCatching {
+                                        pressPending?.let { pressHost?.removeCallbacks(it) }
+                                        pressPending = null
+                                        pressHost?.let { restore(it) }
+                                        pressKey = null
+                                        pressHost = null
+                                        pressLayer = null
                                     }
-                                    return
                                 }
-                                /* 只有在桌面主界面才接管。注意：MIUI 13 的多任务是 RecentsAnimation，
-                                   不产生新 Activity，顶层层级仍是 Launcher，所以这里只做能可靠判断的两项，
-                                   宁可漏判也不误伤长按。 */
+                                ensureReceiver(ctx)
                                 if (!hookEnabled) return
-                                /* 多任务/编辑模式会让桌面窗口失焦，这条比类名判断可靠 */
-                                if (!root.hasWindowFocus()) return
-                                val top = topActivityName(root)
-                                if (inRecents(hit.second) ||
-                                    top.contains("Recents", true) || top.contains("Overview", true)
-                                ) {
-                                    val now = SystemClock.uptimeMillis()
-                                    if (now - lastLogAt > 300) {
-                                        lastLogAt = now
-                                        log("SKIP recents top=$top")
-                                    }
+                                /* 不再用 hasWindowFocus() 当门禁：MIUI 桌面上它在文件夹/多任务态下
+                                   依旧报 true（实测不可靠），遮挡交给 deepestAtLocal 判定。 */
+
+                                /* ★★ 误触修复 ★★
+                                   路径一：如果事件这一层本身就是方块容器，直接接管（最理想，
+                                           被文件夹/多任务盖住时容器收不到事件，天然免疫）。
+                                   路径二：MIUI 的组件容器不一定接得到 dispatchTouchEvent，所以留兜底——
+                                           在 DecorView 层用 hitTest 命中方块，再做「遮挡检测」：
+                                           命中点最上层最深的那个 View 必须属于该方块容器，否则说明
+                                           上面盖着文件夹/多任务浮层，不接管。 */
+                                /* ★★ 误触修复 ★★
+                                   DecorView 往下，事件每经过一层就看这一层：
+                                   命中点上方盖着的最上层子 View 是不是方块这一支的。
+                                   - 是（Workspace → CellLayout → 方块容器）→ 正常接管
+                                   - 不是（文件夹浮层 / 多任务卡片盖在上面）→ 立即放过，事件
+                                     原样交给它们，绝不会再出现「点文件夹里的应用结果加了组」
+                                   DecorView 只有一个全屏子，看不出区别，所以这一层直接放过。 */
+                                if (v === root) return
+                                val now0 = SystemClock.uptimeMillis()
+                                if (now0 - lastHit > 300) {
+                                    lastHit = now0
+                                    log("DOWN layer=${v.javaClass.simpleName} raw=${ev.rawX.toInt()},${ev.rawY.toInt()}")
+                                }
+
+                                if (overlayVisible(root)) {
+                                    log("OVERLAY skip raw=${ev.rawX.toInt()},${ev.rawY.toInt()}")
                                     return
                                 }
-                                if (top.isNotEmpty() &&
-                                    !top.contains("Launcher", true) &&
-                                    !top.contains("Workspace", true)
-                                ) return
+                                var selfKey: String? = keyOfHost(v)
+                                var host: View = v
+                                if (selfKey == null) {
+                                    /* 方块容器不在桌面 DecorView 子树里（实测确认），
+                                       只能用登记表 + 屏幕坐标反查 */
+                                    val hit = hitHost(v.context?.applicationContext ?: return, ev.rawX, ev.rawY)
+                                        ?: return
+                                    selfKey = hit.first
+                                    host = hit.second
+                                }
+                                val key = selfKey ?: return
+
                                 val token = pressToken.incrementAndGet()
-                                pressKey = hit.first
-                                pressHost = hit.second
+                                pressKey = key
+                                pressHost = host
+                                pressLayer = v
                                 pressAt = SystemClock.uptimeMillis()
                                 pressDownTime = ev.downTime
                                 pressX = ev.rawX
                                 pressY = ev.rawY
                                 fired = false
                                 param.result = true
-                                squash(hit.second)
+                                squash(host)
 
-                                val key = hit.first
-                                val host = hit.second
                                 val task = Runnable {
                                     if (token != pressToken.get() || pressKey != key) return@Runnable
                                     fired = true
@@ -578,57 +983,58 @@ class DayTallyXposed : IXposedHookLoadPackage {
                                     vibrate(host, 20)                       // HTML: haptic(20)
                                     val per = perMap[key] ?: 0
                                     if (per > 0) floatText(root, host, "−$per", SUB_COLOR, pressX, pressY)
-                                    val now = SystemClock.uptimeMillis()
-                                    if (now - lastLogAt > 300) {
-                                        lastLogAt = now
-                                        log("LONG key=$key")
-                                    }
+                                    log("LONG key=$key")
                                 }
                                 pressPending = task
                                 host.postDelayed(task, LONG_PRESS_MS)
+
+                                log("HIT key=$key layer=${v.javaClass.simpleName} host=${host.javaClass.simpleName}")
                             }
 
                             MotionEvent.ACTION_MOVE -> {
+                                if (pressLayer !== v) return
                                 if (pressKey == null) return
                                 if (Math.abs(ev.rawX - pressX) > SLOP || Math.abs(ev.rawY - pressY) > SLOP) {
                                     pressPending?.let { pressHost?.removeCallbacks(it) }
                                     pressPending = null
                                     pressHost?.let { restore(it) }
                                     pressKey = null
+                                    pressHost = null
+                                    pressLayer = null
                                 }
                                 param.result = true
                             }
 
                             MotionEvent.ACTION_UP -> {
+                                if (pressLayer !== v) return
                                 val key = pressKey ?: return
+                                val host = pressHost ?: v
                                 pressPending?.let { pressHost?.removeCallbacks(it) }
                                 pressPending = null
-                                val host = pressHost
-                                if (!fired && host != null) {
+                                if (!fired) {
                                     send(ctx, ACTION_ADD, key)
                                     vibrate(host, 12)                       // HTML: haptic(12)
                                     popNumber(host)
                                     val per = perMap[key] ?: 0
                                     if (per > 0) floatText(root, host, "+$per", ADD_COLOR, pressX, pressY)
-                                    val now = SystemClock.uptimeMillis()
-                                    if (now - lastLogAt > 300) {
-                                        lastLogAt = now
-                                        log("TAP key=$key held=${SystemClock.uptimeMillis() - pressAt}")
-                                    }
+                                    log("TAP key=$key held=${SystemClock.uptimeMillis() - pressAt}")
                                 }
-                                host?.let { restore(it) }
+                                restore(host)
                                 pressKey = null
                                 pressHost = null
+                                pressLayer = null
                                 param.result = true
                             }
 
                             MotionEvent.ACTION_CANCEL -> {
+                                if (pressLayer !== v) return
                                 if (pressKey == null) return
                                 pressPending?.let { pressHost?.removeCallbacks(it) }
                                 pressPending = null
                                 pressHost?.let { restore(it) }
                                 pressKey = null
                                 pressHost = null
+                                pressLayer = null
                                 param.result = true
                             }
                         }
@@ -636,6 +1042,52 @@ class DayTallyXposed : IXposedHookLoadPackage {
                 }
             )
         }.onFailure { log("hook failed: $it") }
+
+        hookWidgetTouch(lpparam.classLoader)
+
+        /* MIUI 桌面的 AppWidgetHostView 不在 DecorView 子树里（实测 rootKids=1、
+           DragContainerLayout kids=0），所以只能在「创建那一刻」把容器登记进 hostViews，
+           点按的时候按窗口坐标反查。 */
+        runCatching {
+            XposedHelpers.findAndHookMethod(
+                AppWidgetHost::class.java, "createView",
+                Context::class.java,
+                Int::class.javaPrimitiveType,
+                AppWidgetProviderInfo::class.java,
+                object : XC_MethodHook() {
+                    override fun afterHookedMethod(param: MethodHookParam) {
+                        val view = param.result as? View ?: return
+                        val id = (param.args.getOrNull(1) as? Int) ?: -1
+                        if (id >= 0) {
+                            hostViews[view] = id
+                            log("REG id=$id cls=${view.javaClass.simpleName}")
+                        }
+                    }
+                }
+            )
+            log("createView hook installed")
+        }.onFailure { log("createView hook failed: ${it.message}") }
+
+        /* createView 只在新建时调一次，桌面启动时 widget 早已创建好，
+           所以再兜一层 updateAppWidget——每次数据刷新都会经过这里。 */
+        runCatching {
+            XposedHelpers.findAndHookMethod(
+                AppWidgetHostView::class.java, "updateAppWidget",
+                RemoteViews::class.java,
+                object : XC_MethodHook() {
+                    override fun beforeHookedMethod(param: MethodHookParam) {
+                        val view = param.thisObject as? AppWidgetHostView ?: return
+                        val id = runCatching { view.appWidgetId }.getOrNull() ?: -1
+                        if (id >= 0 && !hostViews.containsKey(view)) {
+                            hostViews[view] = id
+                            log("REG2 id=$id cls=${view.javaClass.simpleName}")
+                        }
+                    }
+                }
+            )
+            log("updateAppWidget hook installed")
+        }.onFailure { log("updateAppWidget hook failed: ${it.message}") }
+
         log("long-press hook installed (${LONG_PRESS_MS}ms, float text, haptics)")
     }
 }

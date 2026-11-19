@@ -34,7 +34,21 @@ class HomeView(ctx: Context, val repo: Repo, val sound: Sound, val cb: HomeCallb
         removeAllViews()
         addView(buildHeader())
         addView(buildHeightCard())
-        repo.order.drop(1).forEach { key -> addView(buildCounter(repo.metric(key))) }
+        /* 5 个间隙等距：身高卡之后 1 个、4 张计数卡的卡间 3 个、最后一张与底栏之间 1 个，
+           全部交给 weight 弹簧均分剩余空间。原来卡间只有 8dp、底部却堆了 51dp，视觉上
+           自定义卡离底栏远得离谱。 */
+        addView(gap())
+        val rest = repo.order.drop(1)
+        rest.forEachIndexed { i, key ->
+            addView(buildCounter(repo.metric(key)))
+            if (i < rest.size - 1) addView(gap())
+        }
+        addView(gap())
+    }
+
+    /** 固定间距的 5 段等距间隙：高度不再靠 weight 抢，避免最后一段被剩余空间撑大 */
+    private fun gap() = View(context).apply {
+        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(15f))
     }
 
     private fun dp(v: Float) = Ui.dp(context, v)
@@ -47,7 +61,7 @@ class HomeView(ctx: Context, val repo: Repo, val sound: Sound, val cb: HomeCallb
         val row = LinearLayout(context).apply {
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(2f), dp(2f), dp(2f), dp(10f))
+            setPadding(dp(2f), dp(2f), dp(2f), 0)
         }
         val left = LinearLayout(context).apply {
             orientation = VERTICAL
@@ -94,11 +108,12 @@ class HomeView(ctx: Context, val repo: Repo, val sound: Sound, val cb: HomeCallb
             orientation = VERTICAL
             background = context.getDrawable(R.drawable.bg_height_card)
             setPadding(dp(14f), dp(12f), dp(14f), dp(10f))
-            // 原型 .bigcard 高 ≈ 148px（padding 12/10 + 顶部数字区 + 贴底 7 天条带）
+            // 高:计数卡 = 148 : 98 的固定比例，高度交给 weight 自适应，保证 5 段间隙绝对等距
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(148f)
-            ).apply { bottomMargin = dp(8f) }
+                0,
+                148f
+            )
             setOnClickListener { cb.openHeightSheet() }
         }
         val top = LinearLayout(context).apply {
@@ -229,11 +244,12 @@ class HomeView(ctx: Context, val repo: Repo, val sound: Sound, val cb: HomeCallb
                 if (done) R.drawable.bg_gold_v else R.drawable.bg_counter
             )
             setPadding(dp(16f), dp(11f), dp(16f), dp(11f))
-            // 原型 .counter 高 ≈ 98px：固定高度保证与设计稿一致
+            // 与身高卡同一套 weight 比例（98 / 148），卡高自适应、5 段间隙等距
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(98f)
-            ).apply { bottomMargin = dp(8f) }
+                0,
+                98f
+            )
             elevation = dp(2f).toFloat()
         }
         val info = LinearLayout(context).apply {

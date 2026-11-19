@@ -43,13 +43,22 @@ object HoldToSettings {
     fun shouldSkipClick(): Boolean =
         SystemClock.uptimeMillis() - firedAt < 900L
 
-    fun install(v: View, onFire: () -> Unit) {
+    fun install(
+        v: View,
+        onDown: (() -> Unit)? = null,
+        onUp: (() -> Unit)? = null,
+        onFire: () -> Unit
+    ) {
         var run: Runnable? = null
+        /* 必须可点击：否则 dispatchTouchEvent 收不到 ACTION_UP，长按也就永远不触发 */
+        v.isClickable = true
         v.setOnTouchListener { _, ev ->
             when (ev.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
+                    onDown?.invoke()
                     val r = Runnable {
                         firedAt = SystemClock.uptimeMillis()
+                        onUp?.invoke()
                         onFire()
                     }
                     run = r
@@ -58,8 +67,11 @@ object HoldToSettings {
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     run?.let { v.removeCallbacks(it) }
                     run = null
+                    onUp?.invoke()
                 }
             }
+            /* 返回 false 不抢事件：交给 View 自己的 onTouchEvent 继续排发（clickable 时它
+               会返回 true，所以 UP/CANCEL 照样能收到，单击也不会被吃掉） */
             false
         }
     }
@@ -105,7 +117,9 @@ class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: Proje
     init {
         content = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(Ui.dp(ctx, 16f), Ui.dp(ctx, 4f), Ui.dp(ctx, 16f), Ui.dp(ctx, 16f))
+            /* 底部不再留 16dp：5 张卡的 4 个卡间 + 与底栏的 1 个间隙，统一由卡片的
+               bottomMargin 10dp 决定，5 个间隙严格等距 */
+            setPadding(Ui.dp(ctx, 16f), Ui.dp(ctx, 4f), Ui.dp(ctx, 16f), 0)
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT
             )
@@ -138,12 +152,28 @@ class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: Proje
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
+        /* 副标题：前半段常灰，后半段「长按项目进入设置」在按住时变红，看得见自己在长按 */
+        val HINT_HEAD = "所有日刻项目 · "
+        val HINT_TAIL = "长按项目进入设置"
         val sub = TextView(context).apply {
-            text = "所有记录项目 · 长按标题或底栏「项目」5 秒进设置"
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f * Ui.S)
             setTextColor(C.INK3)
             letterSpacing = 0.04f
         }
+        fun paintHint(active: Boolean) {
+            val s = HINT_HEAD + HINT_TAIL
+            val ss = android.text.SpannableString(s)
+            if (active) {
+                ss.setSpan(
+                    android.text.style.ForegroundColorSpan(C.RED),
+                    HINT_HEAD.length, s.length,
+                    android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+            }
+            sub.text = ss
+        }
+        paintHint(false)
+
         val title = TextView(context).apply {
             text = "项目"
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 25f * Ui.S)
@@ -151,9 +181,15 @@ class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: Proje
             setTextColor(C.INK)
             letterSpacing = -0.01f
             setPadding(0, dp(4f), 0, 0)
-            installHoldToSettings(cb)
         }
         left.addView(sub); left.addView(title)
+        /* 热区铺满整个页头行（副标题 + 大字「项目」 + 右侧返回键外围的空白），
+           命中率最高；按住时副标题后半句变红。返回键是子 View，点击优先级更高，不受影响。 */
+        HoldToSettings.install(
+            row,
+            onDown = { paintHint(true) },
+            onUp = { paintHint(false) }
+        ) { cb.gotoSettings() }
         val back = android.widget.FrameLayout(context).apply {
             background = context.getDrawable(R.drawable.bg_icon_circle)
             val s = dp(36f)
@@ -430,6 +466,7 @@ class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: Proje
     }
 
     private fun openMaxGroupsSheet(m: Metric) {
+        sound.sheetChime()   // 弹窗出现给一记提示音，和「去记录」弹窗同一个音色
         val shell = sheetShell()
         shell.addView(sheetTitle("趋势纵轴上限"))
         val et = field("1 ~ 999（组）", m.maxGroups.toString(), numeric = true, maxLen = 3)
@@ -452,6 +489,7 @@ class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: Proje
     }
 
     private fun openEditSheet(m: Metric) {
+        sound.sheetChime()   // 弹窗出现给一记提示音，和「去记录」弹窗同一个音色
         val shell = sheetShell()
         shell.addView(sheetTitle("编辑项目"))
         var unit = m.unit
@@ -535,7 +573,10 @@ class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: Proje
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f * Ui.S)
             setTextColor(C.INK3)
             gravity = Gravity.CENTER
-            setLineSpacing(0f, 1.7f)
+            /* HTML 是 line-height 1.7（=1.7 倍字高）；Android 的 mult 是相对字体行框
+               (≈1.16em)，所以要用 1.45 才等价于原型那点行距。原来填 1.7 实际约 2.0em，
+               行距被撑到跟「标题→正文」的间距一样大，层次就平了。 */
+            setLineSpacing(0f, 1.45f)
             setPadding(0, dp(7f * Ui.S), 0, 0)
         })
         shell.addView(TextView(context).apply {
@@ -551,7 +592,7 @@ class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: Proje
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply { topMargin = dp(19f * Ui.S) }
             setOnClickListener {
-                repo.resetProject(m); sound.reset(); render(); closeOverlay {}
+                repo.resetProject(m); sound.add(); render(); closeOverlay {}
             }
         })
         showOverlay(shell)

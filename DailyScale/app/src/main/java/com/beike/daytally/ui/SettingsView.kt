@@ -111,12 +111,6 @@ class SettingsView(
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(C.INK)
         })
-        col.addView(TextView(context).apply {
-            text = "关掉后桌面方块恢复原生长按，可拖动、可移除"
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f * Ui.S)
-            setTextColor(C.INK3)
-            setPadding(0, dp(4f), 0, 0)
-        })
         row.addView(col, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         row.addView(android.widget.Switch(context).apply {
             isChecked = ProjectsView.hookEnabled(context)
@@ -130,7 +124,7 @@ class SettingsView(
     }
 
     private fun buildVersion(): View = TextView(context).apply {
-        text = "日刻 1.2.3 · 预览版"
+        text = "日刻 1.2.4 · 预览版"
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f * Ui.S)
         setTextColor(C.INK3)
         setPadding(dp(2f), dp(8f), 0, 0)
