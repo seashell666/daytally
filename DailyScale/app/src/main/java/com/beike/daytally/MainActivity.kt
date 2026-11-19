@@ -17,6 +17,8 @@ import com.beike.daytally.ui.HomeCallback
 import com.beike.daytally.ui.HomeView
 import com.beike.daytally.ui.ProjectsCallback
 import com.beike.daytally.ui.ProjectsView
+import com.beike.daytally.ui.SettingsCallback
+import com.beike.daytally.ui.SettingsView
 import com.beike.daytally.ui.TrendCallback
 import com.beike.daytally.ui.TrendView
 import com.beike.daytally.util.C
@@ -29,6 +31,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var home: HomeView
     private lateinit var trend: TrendView
     private lateinit var projects: ProjectsView
+    private lateinit var settings: SettingsView
     private lateinit var overlay: FrameLayout
     private var tabIcons: List<android.widget.ImageView> = emptyList()
     private var tabLabels: List<Pair<String, TextView>> = emptyList()
@@ -58,10 +61,15 @@ class MainActivity : AppCompatActivity() {
         })
         projects = ProjectsView(this, repo, sound, object : ProjectsCallback {
             override fun gotoHome() = switchView("home")
+            override fun gotoSettings() = openSettings()
+        })
+        settings = SettingsView(this, sound, object : SettingsCallback {
+            override fun leaveSettings() = switchView("projects")
         })
         content.addView(home)
         content.addView(trend)
         content.addView(projects)
+        content.addView(settings)
 
         buildTabs(main.findViewById(R.id.tabbar))
         switchView("home")
@@ -75,6 +83,16 @@ class MainActivity : AppCompatActivity() {
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         handleWidgetIntent(intent)
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        if (current == "settings") {
+            switchView("projects")
+            return
+        }
+        @Suppress("DEPRECATION")
+        super.onBackPressed()
     }
 
     private fun handleWidgetIntent(intent: android.content.Intent?) {
@@ -106,6 +124,8 @@ class MainActivity : AppCompatActivity() {
                 gravity = Gravity.CENTER
                 tag = key
                 setOnClickListener {
+                    /* 长按 5 秒刚进过设置，抬手这一下不要又切回项目页 */
+                    if (key == "projects" && com.beike.daytally.ui.HoldToSettings.shouldSkipClick()) return@setOnClickListener
                     sound.tabTap()      // 每按必震：单击一下、双击两下
                     val now = android.os.SystemClock.uptimeMillis()
                     val dbl = key != "home" && key == lastTabKey && now - lastTabMs < 420L
@@ -134,10 +154,20 @@ class MainActivity : AppCompatActivity() {
                 setPadding(0, Ui.dp(this@MainActivity, 3f), 0, 0)
             }
             col.addView(iv); col.addView(tv)
+            /* 长按底栏「项目」5 秒 = 进隐藏设置页 */
+            if (key == "projects") {
+                com.beike.daytally.ui.HoldToSettings.install(col) { openSettings() }
+            }
             tabbar.addView(col)
             tabIcons = tabIcons + iv
             tabLabels = tabLabels + (key to tv)
         }
+    }
+
+    /** 隐藏设置页：只能从项目页长按 5 秒进来（底栏「项目」或标题「项目」都行） */
+    private fun openSettings() {
+        sound.sheetOpen()
+        switchView("settings")
     }
 
     private fun switchView(key: String) {
@@ -145,6 +175,7 @@ class MainActivity : AppCompatActivity() {
         home.visibility = if (key == "home") View.VISIBLE else View.GONE
         trend.visibility = if (key == "trend") View.VISIBLE else View.GONE
         projects.visibility = if (key == "projects") View.VISIBLE else View.GONE
+        settings.visibility = if (key == "settings") View.VISIBLE else View.GONE
         tabLabels.forEachIndexed { i, (k, tv) ->
             val on = k == key
             tv.setTextColor(if (on) C.RED else C.INK3)
@@ -154,6 +185,7 @@ class MainActivity : AppCompatActivity() {
             "home" -> home.render()
             "trend" -> trend.render()
             "projects" -> projects.render()
+            "settings" -> settings.render()
         }
     }
 

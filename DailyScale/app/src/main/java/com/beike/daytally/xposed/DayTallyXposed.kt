@@ -1,5 +1,6 @@
 package com.beike.daytally.xposed
 
+import android.animation.ValueAnimator
 import android.appwidget.AppWidgetHostView
 import android.appwidget.AppWidgetManager
 import android.content.BroadcastReceiver
@@ -7,7 +8,9 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.Typeface
 import android.os.SystemClock
 import android.os.VibrationEffect
@@ -15,8 +18,10 @@ import android.os.Vibrator
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.LinearInterpolator
 import android.view.animation.PathInterpolator
 import android.widget.TextView
+import androidx.core.animation.doOnEnd
 import java.util.concurrent.atomic.AtomicInteger
 import de.robv.android.xposed.IXposedHookLoadPackage
 import de.robv.android.xposed.XC_MethodHook
@@ -49,7 +54,7 @@ class DayTallyXposed : IXposedHookLoadPackage {
         private const val SELF_PKG = "com.beike.daytally"
 
         /** 长按阈值：0.2 秒（用户要求，原 380ms） */
-        private const val LONG_PRESS_MS = 200L
+        private const val LONG_PRESS_MS = 100L
         private const val SLOP = 60f
 
         private const val ADD_COLOR = 0xFFC9414E.toInt()   // HTML: '#C9414E'
@@ -314,57 +319,125 @@ class DayTallyXposed : IXposedHookLoadPackage {
         }
 
         /**
-         * 浮动数字，逐字复刻 HTML floatText：
-         *   .65 → 1.1（上移 95%）+ 淡入，22% 处；再上移到 200%、回到 1.0、淡出到 0；总 760ms。
+         * 浮动数字：自绘 + 白色描边，四个方块走同一套代码，保证样式完全一致。
+         * 动效复刻 HTML floatText：0% scale .65/op0 → 22% scale 1.1/上移 95%/op1
+         * → 100% scale 1/上移 200%/op0，总 760ms，分段缓动 cubic-bezier(.22,.61,.36,1)。
          */
-        private fun floatText(root: View, host: View, text: String, color: Int) {
-            val ctx = root.context ?: return
-            val parent = root as? ViewGroup ?: return
-            val tv = TextView(ctx).apply {
-                setText(text)
-                setTextColor(color)
-                textSize = 21f                       // HTML 18px × 1.1755 ≈ 21dp
+        private class FloatNumView(ctx: Context) : View(ctx) {
+            var text: String = ""
+            var fillColor: Int = Color.RED
+            var anchorX = 0f
+            var anchorY = 0f
+            private var textW = 0f
+            private var textH = 0f
+            private var ascent = 0f
+            private val ease = PathInterpolator(0.22f, 0.61f, 0.36f, 1f)
+            private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.FILL
                 typeface = Typeface.DEFAULT_BOLD
-                includeFontPadding = false
-                setShadowLayer(10f, 0f, 2f, Color.WHITE)
-                isClickable = false
-                isFocusable = false
             }
-            runCatching { parent.addView(tv, ViewGroup.LayoutParams(-2, -2)) }
-            val loc = IntArray(2)
-            host.getLocationOnScreen(loc)
-            val cx = loc[0] + host.width / 2f
-            val cy = loc[1] + 4f * 2.625f           // HTML: top + 4px，元素中心对齐该点
+            private val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.STROKE
+                typeface = Typeface.DEFAULT_BOLD
+                color = Color.WHITE
+                strokeWidth = 2f * 2.625f      // 2px @ HTML 基准换算到真机 px
+                strokeJoin = Paint.Join.ROUND
+            }
+            private var t = 0f
+            private var running = false
 
-            tv.post {
-                runCatching {
-                    val h = tv.height.toFloat()
-                    if (h <= 0f) { parent.removeView(tv); return@runCatching }
-                    /* 注意：translationY 是「相对布局位置的绝对偏移」，直接拿它做动画会把
-                       前面用 tv.y 摆好的位置覆盖掉（数字会瞬移到屏幕顶端）。
-                       这里统一用 ViewPropertyAnimator.y() 走绝对屏幕坐标。 */
-                    val baseY = cy - h / 2f
-                    tv.x = cx - tv.width / 2f
-                    tv.y = baseY
-                    tv.pivotX = tv.width / 2f
-                    tv.pivotY = h / 2f
-                    tv.scaleX = 0.65f
-                    tv.scaleY = 0.65f
-                    tv.alpha = 0f
+            fun measureText(sizePx: Float) {
+                fill.textSize = sizePx
+                stroke.textSize = sizePx
+                fill.color = fillColor
+                textW = fill.measureText(text)
+                val fm = fill.fontMetrics
+                ascent = fm.ascent
+                textH = fm.descent - fm.ascent
+            }
 
-                    tv.animate().alpha(1f).scaleX(1.1f).scaleY(1.1f).y(baseY - h * 0.95f)
-                        .setDuration(170)
-                        .setInterpolator(PathInterpolator(0.22f, 0.61f, 0.36f, 1f))
-                        .withEndAction {
-                            tv.animate().alpha(0f).scaleX(1f).scaleY(1f).y(baseY - h * 2f)
-                                .setDuration(590)
-                                .setInterpolator(PathInterpolator(0.22f, 0.61f, 0.36f, 1f))
-                                .withEndAction { runCatching { parent.removeView(tv) } }
-                                .start()
-                        }.start()
+            fun progress(v: Float) { t = v; invalidate() }
+
+            override fun onDraw(canvas: Canvas) {
+                if (text.isEmpty() || textH <= 0f) return
+                val (sc, dy, op) = keyframe(t)
+                canvas.save()
+                canvas.translate(anchorX, anchorY + dy)
+                canvas.scale(sc, sc)
+                val a = (op.coerceIn(0f, 1f) * 255f).toInt()
+                stroke.alpha = a
+                fill.alpha = a
+                val x = -textW / 2f
+                val baseline = -ascent - textH / 2f     // 文字垂直中心对齐 (0,0)
+                canvas.drawText(text, x, baseline, stroke)
+                canvas.drawText(text, x, baseline, fill)
+                canvas.restore()
+            }
+
+            /** t∈[0,1] → (scale, 上移距离(以文字高为基准), 透明度) */
+            private fun keyframe(t: Float): Triple<Float, Float, Float> {
+                return if (t <= 0.22f) {
+                    val u = ease.getInterpolation((t / 0.22f).coerceIn(0f, 1f))
+                    Triple(lerp(0.65f, 1.1f, u), lerp(0f, -0.95f, u) * textH, u)
+                } else {
+                    val u = ease.getInterpolation(((t - 0.22f) / 0.78f).coerceIn(0f, 1f))
+                    Triple(lerp(1.1f, 1.0f, u), lerp(-0.95f, -2.0f, u) * textH, 1f - u)
                 }
             }
+
+            private fun lerp(a: Float, b: Float, u: Float) = a + (b - a) * u
+
+            fun start() {
+                if (running) return
+                running = true
+                val anim = ValueAnimator.ofFloat(0f, 1f).apply {
+                    duration = 760L
+                    interpolator = android.view.animation.LinearInterpolator()
+                    addUpdateListener { progress(it.animatedValue as Float) }
+                }
+                anim.doOnEnd {
+                    runCatching { (parent as? ViewGroup)?.removeView(this@FloatNumView) }
+                }
+                anim.start()
+            }
         }
+
+        /**
+         * 浮动数字的锚点直接用「手指按下的屏幕坐标」。
+         * 不用 host.getLocationOnScreen：MIUI 桌面在页面切换/缩放时这个 API 的 y 会算错
+         * （实测 x 正确、y 少 400~500px，导致字飘到大卡上）。
+         */
+        private fun floatText(root: View, host: View, text: String, color: Int, sx: Float, sy: Float) {
+            val ctx = root.context ?: return
+            val parent = root as? ViewGroup ?: return
+            val v = FloatNumView(ctx).apply {
+                this.text = text
+                this.fillColor = color
+            }
+            val sizePx = 21f * 2.625f           // HTML 18px × 1.1755 ≈ 21dp
+            v.measureText(sizePx)
+            val rl = IntArray(2)
+            runCatching { parent.getLocationOnScreen(rl) }
+            v.anchorX = sx - rl[0]
+            /* 方块顶 = 手指 y 往上推半个方块高；HTML 起始点是元素顶 + 4px */
+            v.anchorY = sy - host.height / 2f - rl[1] + 4f * 2.625f
+            /* 铺满整屏：绘制坐标直接用屏幕坐标，父容器的 clipChildren 才不会把飘出去的字裁掉 */
+            v.layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            v.setWillNotDraw(false)
+            v.isClickable = false
+            v.isFocusable = false
+            v.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            runCatching {
+                parent.addView(v)
+                parent.bringChildToFront(v)
+            }
+            v.start()
+        }
+
+        private fun Int.dp(): Float = this * 2.625f
 
         private fun providerOf(key: String): String = when (key) {
             "push" -> "$SELF_PKG.widget.PushWidget"
@@ -504,7 +577,7 @@ class DayTallyXposed : IXposedHookLoadPackage {
                                     send(c, ACTION_REMOVE, key)
                                     vibrate(host, 20)                       // HTML: haptic(20)
                                     val per = perMap[key] ?: 0
-                                    if (per > 0) floatText(root, host, "−$per", SUB_COLOR)
+                                    if (per > 0) floatText(root, host, "−$per", SUB_COLOR, pressX, pressY)
                                     val now = SystemClock.uptimeMillis()
                                     if (now - lastLogAt > 300) {
                                         lastLogAt = now
@@ -536,7 +609,7 @@ class DayTallyXposed : IXposedHookLoadPackage {
                                     vibrate(host, 12)                       // HTML: haptic(12)
                                     popNumber(host)
                                     val per = perMap[key] ?: 0
-                                    if (per > 0) floatText(root, host, "+$per", ADD_COLOR)
+                                    if (per > 0) floatText(root, host, "+$per", ADD_COLOR, pressX, pressY)
                                     val now = SystemClock.uptimeMillis()
                                     if (now - lastLogAt > 300) {
                                         lastLogAt = now

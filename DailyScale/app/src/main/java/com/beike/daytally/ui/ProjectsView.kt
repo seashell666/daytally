@@ -6,6 +6,7 @@ import android.graphics.PorterDuff
 import android.graphics.Typeface
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.text.Editable
 import android.text.SpannableString
 import android.text.Spanned
@@ -31,7 +32,43 @@ import com.beike.daytally.util.C
 import com.beike.daytally.util.Ui
 import java.text.DecimalFormat
 
-interface ProjectsCallback { fun gotoHome() }
+interface ProjectsCallback { fun gotoHome(); fun gotoSettings() }
+
+/** 长按 5 秒进设置：按下起计时，抬手/滑走就取消，中途不动才算数 */
+object HoldToSettings {
+    const val HOLD_MS = 5000L
+    /** 长按刚触发过的话，抬手那一下的单击就别再执行了 */
+    private var firedAt = 0L
+
+    fun shouldSkipClick(): Boolean =
+        SystemClock.uptimeMillis() - firedAt < 900L
+
+    fun install(v: View, onFire: () -> Unit) {
+        var run: Runnable? = null
+        v.setOnTouchListener { _, ev ->
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    val r = Runnable {
+                        firedAt = SystemClock.uptimeMillis()
+                        onFire()
+                    }
+                    run = r
+                    v.postDelayed(r, HOLD_MS)
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    run?.let { v.removeCallbacks(it) }
+                    run = null
+                }
+            }
+            false
+        }
+    }
+}
+
+private fun View.installHoldToSettings(cb: ProjectsCallback) = apply {
+    HoldToSettings.install(this) { cb.gotoSettings() }
+}
+
 
 class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: ProjectsCallback) : FrameLayout(ctx) {
 
@@ -89,43 +126,6 @@ class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: Proje
         content.removeAllViews()
         content.addView(buildHeader())
         repo.order.forEach { key -> content.addView(buildCard(repo.metric(key))) }
-        content.addView(buildHookSwitch())
-    }
-
-    /** 桌面长按接管开关：关掉即刻恢复原生长按，不用重启桌面 */
-    private fun buildHookSwitch(): View {
-        val row = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            background = context.getDrawable(R.drawable.bg_week)
-            setPadding(dp(16f), dp(15f), dp(12f), dp(15f))
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { topMargin = dp(12f); bottomMargin = dp(20f) }
-        }
-        val col = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
-        col.addView(TextView(context).apply {
-            text = "桌面长按接管"
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f * Ui.S)
-            setTypeface(typeface, Typeface.BOLD)
-            setTextColor(C.INK)
-        })
-        col.addView(TextView(context).apply {
-            text = "关掉后桌面方块恢复原生长按，可拖动、可移除"
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f * Ui.S)
-            setTextColor(C.INK3)
-            setPadding(0, dp(4f), 0, 0)
-        })
-        row.addView(col, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        row.addView(android.widget.Switch(context).apply {
-            isChecked = hookEnabled(context)
-            setOnCheckedChangeListener { _, on ->
-                setHookEnabled(context, on)
-                sendHookSwitch(context, on)
-                sound.tap()
-            }
-        })
-        return row
     }
 
     private fun buildHeader(): View {
@@ -139,7 +139,7 @@ class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: Proje
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
         val sub = TextView(context).apply {
-            text = "所有记录项目"
+            text = "所有记录项目 · 长按5秒项目进入设置"
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f * Ui.S)
             setTextColor(C.INK3)
             letterSpacing = 0.04f
@@ -151,6 +151,7 @@ class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: Proje
             setTextColor(C.INK)
             letterSpacing = -0.01f
             setPadding(0, dp(4f), 0, 0)
+            installHoldToSettings(cb)
         }
         left.addView(sub); left.addView(title)
         val back = android.widget.FrameLayout(context).apply {
