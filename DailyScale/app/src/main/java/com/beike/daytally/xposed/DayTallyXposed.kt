@@ -42,6 +42,8 @@ class DayTallyXposed : IXposedHookLoadPackage {
         private const val ACTION_ADD = "com.beike.daytally.WIDGET_ADD"
         private const val ACTION_REMOVE = "com.beike.daytally.WIDGET_REMOVE"
         private const val ACTION_PER_SYNC = "com.beike.daytally.PER_SYNC"
+        /** App 内「接管桌面长按」开关：关掉即刻恢复原生长按，不用重启桌面 */
+        private const val ACTION_HOOK_SWITCH = "com.beike.daytally.HOOK_SWITCH"
         private const val EXTRA_KEY = "metric_key"
         private const val TAG = "DayTally"
         private const val SELF_PKG = "com.beike.daytally"
@@ -70,7 +72,80 @@ class DayTallyXposed : IXposedHookLoadPackage {
         @Volatile private var perMap: Map<String, Int> = mapOf(
             "push" to 12, "horse" to 11, "pullup" to 13, "custom" to 47
         )
+        /** App 内开关播过来：不用重启桌面就能暂停/恢复接管 */
+        @Volatile private var hookEnabled = true
         @Volatile private var receiverRegistered = false
+
+        /** 当前前台 Activity。桌面进程一般有 GET_TASKS，先用 ActivityManager；
+            拿不到再退回反射 ActivityThread.mActivities（多任务时桌面被 pause，只看 paused/stopped）。 */
+        private fun topActivityName(root: View): String {
+            runCatching {
+                val am = root.context?.getSystemService(Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
+                @Suppress("DEPRECATION")
+                val tasks = am?.getRunningTasks(1)
+                if (tasks != null && tasks.isNotEmpty()) {
+                    val cn = tasks[0]?.topActivity
+                    if (cn != null) return cn.className
+                }
+            }
+            return runCatching {
+                val cls = Class.forName("android.app.ActivityThread")
+                val thread = cls.getMethod("currentActivityThread").invoke(null)
+                val map = cls.getDeclaredField("mActivities").apply { isAccessible = true }.get(thread) as Map<*, *>
+                var name = ""
+                for (r in map.values) {
+                    val rec = r ?: continue
+                    fun boolField(f: String) = runCatching {
+                        rec.javaClass.getDeclaredField(f).apply { isAccessible = true }.getBoolean(rec)
+                    }.getOrDefault(false)
+                    if (boolField("paused") || boolField("stopped")) continue
+                    val a = runCatching {
+                        rec.javaClass.getDeclaredField("activity").apply { isAccessible = true }.get(rec)
+                    }.getOrNull() ?: continue
+                    name = a.javaClass.name
+                }
+                name
+            }.getOrDefault("")
+        }
+
+        private fun inRecents(v: View): Boolean {
+            var p: android.view.ViewParent? = v.parent
+            var depth = 0
+            while (p != null && depth < 24) {
+                val n = (p as? View)?.javaClass?.name ?: ""
+                if (n.contains("Recents") || n.contains("recents")) return true
+                p = p.parent
+                depth++
+            }
+            return false
+        }
+
+        /** 最近任务的容器：只有当它真的在屏幕上占了一块地方才算，常驻但没显示的实例要排除 */
+        private fun hasRecentsView(root: View): Boolean {
+            var found = false
+            val rect = android.graphics.Rect()
+            fun walk(v: View, d: Int) {
+                if (found || d > 12) return
+                val n = v.javaClass.name
+                if (v.visibility == View.VISIBLE &&
+                    (n.contains("Recents", true) || n.contains("Overview", true))
+                ) {
+                    if (v.getGlobalVisibleRect(rect) && rect.width() > 60 && rect.height() > 60) {
+                        found = true
+                        return
+                    }
+                }
+                if (v is ViewGroup) {
+                    var i = 0
+                    while (i < v.childCount) {
+                        walk(v.getChildAt(i), d + 1)
+                        i++
+                    }
+                }
+            }
+            walk(root, 0)
+            return found
+        }
 
         private fun keyOf(provider: String?): String? = when {
             provider == null -> null
@@ -264,19 +339,24 @@ class DayTallyXposed : IXposedHookLoadPackage {
             tv.post {
                 runCatching {
                     val h = tv.height.toFloat()
+                    if (h <= 0f) { parent.removeView(tv); return@runCatching }
+                    /* 注意：translationY 是「相对布局位置的绝对偏移」，直接拿它做动画会把
+                       前面用 tv.y 摆好的位置覆盖掉（数字会瞬移到屏幕顶端）。
+                       这里统一用 ViewPropertyAnimator.y() 走绝对屏幕坐标。 */
+                    val baseY = cy - h / 2f
                     tv.x = cx - tv.width / 2f
-                    tv.y = cy - tv.height / 2f
+                    tv.y = baseY
                     tv.pivotX = tv.width / 2f
-                    tv.pivotY = tv.height / 2f
+                    tv.pivotY = h / 2f
                     tv.scaleX = 0.65f
                     tv.scaleY = 0.65f
                     tv.alpha = 0f
 
-                    tv.animate().alpha(1f).scaleX(1.1f).scaleY(1.1f).translationY(-h * 0.95f)
+                    tv.animate().alpha(1f).scaleX(1.1f).scaleY(1.1f).y(baseY - h * 0.95f)
                         .setDuration(170)
                         .setInterpolator(PathInterpolator(0.22f, 0.61f, 0.36f, 1f))
                         .withEndAction {
-                            tv.animate().alpha(0f).scaleX(1f).scaleY(1f).translationY(-h * 2f)
+                            tv.animate().alpha(0f).scaleX(1f).scaleY(1f).y(baseY - h * 2f)
                                 .setDuration(590)
                                 .setInterpolator(PathInterpolator(0.22f, 0.61f, 0.36f, 1f))
                                 .withEndAction { runCatching { parent.removeView(tv) } }
@@ -312,6 +392,11 @@ class DayTallyXposed : IXposedHookLoadPackage {
                     val r = object : BroadcastReceiver() {
                         override fun onReceive(c: Context?, intent: Intent?) {
                             intent ?: return
+                            if (intent.action == ACTION_HOOK_SWITCH) {
+                                hookEnabled = intent.getBooleanExtra("enabled", true)
+                                log("hook enabled = $hookEnabled")
+                                return
+                            }
                             if (intent.action != ACTION_PER_SYNC) return
                             val next = HashMap<String, Int>()
                             for (k in arrayOf("push", "horse", "pullup", "custom")) {
@@ -321,7 +406,7 @@ class DayTallyXposed : IXposedHookLoadPackage {
                             if (next.isNotEmpty()) perMap = perMap + next
                         }
                     }
-                    val f = IntentFilter(ACTION_PER_SYNC)
+                    val f = IntentFilter(ACTION_PER_SYNC).apply { addAction(ACTION_HOOK_SWITCH) }
                     try {
                         ctx.registerReceiver(r, f, Context.RECEIVER_EXPORTED)
                     } catch (t: Throwable) {
@@ -378,6 +463,27 @@ class DayTallyXposed : IXposedHookLoadPackage {
                                     }
                                     return
                                 }
+                                /* 只有在桌面主界面才接管。注意：MIUI 13 的多任务是 RecentsAnimation，
+                                   不产生新 Activity，顶层层级仍是 Launcher，所以这里只做能可靠判断的两项，
+                                   宁可漏判也不误伤长按。 */
+                                if (!hookEnabled) return
+                                /* 多任务/编辑模式会让桌面窗口失焦，这条比类名判断可靠 */
+                                if (!root.hasWindowFocus()) return
+                                val top = topActivityName(root)
+                                if (inRecents(hit.second) ||
+                                    top.contains("Recents", true) || top.contains("Overview", true)
+                                ) {
+                                    val now = SystemClock.uptimeMillis()
+                                    if (now - lastLogAt > 300) {
+                                        lastLogAt = now
+                                        log("SKIP recents top=$top")
+                                    }
+                                    return
+                                }
+                                if (top.isNotEmpty() &&
+                                    !top.contains("Launcher", true) &&
+                                    !top.contains("Workspace", true)
+                                ) return
                                 val token = pressToken.incrementAndGet()
                                 pressKey = hit.first
                                 pressHost = hit.second

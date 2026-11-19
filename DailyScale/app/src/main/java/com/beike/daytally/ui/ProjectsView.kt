@@ -35,6 +35,29 @@ interface ProjectsCallback { fun gotoHome() }
 
 class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: ProjectsCallback) : FrameLayout(ctx) {
 
+    companion object {
+        private const val PREFS_CFG = "ds_cfg"
+        private const val K_HOOK = "desktop_hook"
+        const val ACTION_HOOK_SWITCH = "com.beike.daytally.HOOK_SWITCH"
+
+        fun hookEnabled(c: Context): Boolean =
+            c.getSharedPreferences(PREFS_CFG, Context.MODE_PRIVATE).getBoolean(K_HOOK, true)
+
+        fun setHookEnabled(c: Context, on: Boolean) {
+            c.getSharedPreferences(PREFS_CFG, Context.MODE_PRIVATE).edit().putBoolean(K_HOOK, on).apply()
+        }
+
+        /** 把开关状态告诉桌面进程里的钩子，不用重启桌面就能生效 */
+        fun sendHookSwitch(c: Context, on: Boolean) {
+            runCatching {
+                val i = android.content.Intent(ACTION_HOOK_SWITCH)
+                i.putExtra("enabled", on)
+                i.addFlags(android.content.Intent.FLAG_RECEIVER_FOREGROUND)
+                c.sendBroadcast(i)
+            }
+        }
+    }
+
     private val handler = Handler(Looper.getMainLooper())
     private val content: LinearLayout
     private val overlay: FrameLayout
@@ -66,6 +89,43 @@ class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: Proje
         content.removeAllViews()
         content.addView(buildHeader())
         repo.order.forEach { key -> content.addView(buildCard(repo.metric(key))) }
+        content.addView(buildHookSwitch())
+    }
+
+    /** 桌面长按接管开关：关掉即刻恢复原生长按，不用重启桌面 */
+    private fun buildHookSwitch(): View {
+        val row = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = context.getDrawable(R.drawable.bg_week)
+            setPadding(dp(16f), dp(15f), dp(12f), dp(15f))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = dp(12f); bottomMargin = dp(20f) }
+        }
+        val col = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+        col.addView(TextView(context).apply {
+            text = "桌面长按接管"
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f * Ui.S)
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(C.INK)
+        })
+        col.addView(TextView(context).apply {
+            text = "关掉后桌面方块恢复原生长按，可拖动、可移除"
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f * Ui.S)
+            setTextColor(C.INK3)
+            setPadding(0, dp(4f), 0, 0)
+        })
+        row.addView(col, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        row.addView(android.widget.Switch(context).apply {
+            isChecked = hookEnabled(context)
+            setOnCheckedChangeListener { _, on ->
+                setHookEnabled(context, on)
+                sendHookSwitch(context, on)
+                sound.tap()
+            }
+        })
+        return row
     }
 
     private fun buildHeader(): View {

@@ -68,6 +68,8 @@ class MainActivity : AppCompatActivity() {
         handleWidgetIntent(intent)
         /* 打开 App 就把桌面组件刷一遍，保证组件和 App 内数据永远一致 */
         com.beike.daytally.widget.WidgetRefresh.refreshAll(this)
+        /* 顺便把「桌面长按接管」开关的当前状态同步给桌面进程的钩子 */
+        com.beike.daytally.ui.ProjectsView.sendHookSwitch(this, com.beike.daytally.ui.ProjectsView.hookEnabled(this))
     }
 
     override fun onNewIntent(intent: android.content.Intent) {

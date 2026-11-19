@@ -113,6 +113,8 @@ open class WidgetProvider(private val key: String) : AppWidgetProvider() {
                 val repo = Repo.get(context).also { it.ensureToday() }
                 repo.metric(k).let { repo.removeGroup(it) }
                 Sound.get(context).remove()
+                /* 减组同样把大卡切到这个项目——加/减是同一套联动，原型里不区分 */
+                WeekWidget.setCurrentKey(context, k)
                 refreshAll(context)
             }
         }
