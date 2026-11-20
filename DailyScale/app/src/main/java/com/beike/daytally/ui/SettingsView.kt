@@ -18,7 +18,7 @@ import com.beike.daytally.util.Ui
 interface SettingsCallback { fun leaveSettings() }
 
 /**
- * 隐藏页：只在项目页长按 2 秒才进得来。
+ * 隐藏页：只在项目页长按 0.7 秒才进得来。
  * 现在只有一组开关（桌面长按接管），以后桌面相关的都放这儿。
  */
 class SettingsView(
@@ -130,7 +130,7 @@ class SettingsView(
     }
 
     private fun buildVersion(): View = TextView(context).apply {
-        text = "日刻 1.2.6 · 预览版"
+        text = "日刻 1.2.7 · 预览版"
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f * Ui.S)
         setTextColor(C.INK3)
         setPadding(dp(2f), dp(8f), 0, 0)

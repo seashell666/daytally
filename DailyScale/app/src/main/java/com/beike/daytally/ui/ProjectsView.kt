@@ -36,10 +36,10 @@ interface ProjectsCallback { fun gotoHome(); fun gotoSettings() }
 
 /**
  * 长按进设置：按下起计时，抬手/滑走就取消，中途不动才算数。
- * 项目页 2 秒，今日页底栏「项目」0.7 秒。
+ * 项目页 0.7 秒，今日页底栏「项目」也是 0.7 秒。
  */
 object HoldToSettings {
-    const val HOLD_MS = 2000L
+    const val HOLD_MS = 700L
     const val HOLD_MS_HOME = 700L
     /**
      * 长按已经触发过（已经进了设置页），这个手势抬手时的单击就不能再执行。
