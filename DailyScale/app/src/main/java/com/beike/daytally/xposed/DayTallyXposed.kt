@@ -222,19 +222,17 @@ class DayTallyXposed : IXposedHookLoadPackage {
          *
          * 历史坑：早前把 `getLocationOnScreen` 的 y 当成「中心 + 半高」，用 loc.y - h/2 当中心，
          * 命中区被整体抬高一整格（267px）。用户点上排「俯卧撑」，最近邻算出来的是下排
-         * 「引体向上」→ 加组加错项目。真机复测（2026-11-20）：loc.y = 1383 时方块可见顶边
-         * ≈1390，loc.y 就是**左上角**，中心应为 loc.y + h/2。
+         * 「引体向上」→ 加组加错项目。真机复测（2026-11-20）：loc.y 就是**左上角**。
          *
-         * 判定顺序：先看手指是否落在真实矩形里（落在里面最可信），都不在才退回
-         * 最近邻 + 210px 阈值（容手指点偏一点）。
+         * 判定只认「手指落在方块矩形里」。不再用「最近邻 + 210px」兜底：那个半径会伸到
+         * 方块外面，点左边的 App 图标、或点红块右边一点点的空白，也会被算成加组。
+         * 宁可点边缘差一两像素不响应，也不能让方块抢走旁边图标/空白的点击。
          */
         private fun hitHost(ctx: Context, sx: Float, sy: Float): Pair<String, View>? {
             if (hostViews.isEmpty()) return null
             val loc = IntArray(2)
-            var inside: Pair<String, View>? = null
-            var insideD = Float.MAX_VALUE
-            var near: Pair<String, View>? = null
-            var nearD = 210f
+            var best: Pair<String, View>? = null
+            var bestD = Float.MAX_VALUE
             val dbg = StringBuilder()
             for ((hv, id) in hostViews.entries.toList()) {
                 val h = hv ?: continue
@@ -248,23 +246,22 @@ class DayTallyXposed : IXposedHookLoadPackage {
                 val t = loc[1].toFloat()
                 val r = l + w
                 val b = t + gh
-                val isInside = sx >= l && sx <= r && sy >= t && sy <= b
+                val inside = sx >= l && sx <= r && sy >= t && sy <= b
                 val cx = l + w / 2f
                 val cy = t + gh / 2f
                 val d = Math.hypot((sx - cx).toDouble(), (sy - cy).toDouble()).toFloat()
-                dbg.append("$k@${cx.toInt()},${cy.toInt()}${if (isInside) " in" else ""} d=${d.toInt()};")
-                if (isInside) {
-                    if (d < insideD) { insideD = d; inside = k to h }
-                } else if (d < nearD) {
-                    nearD = d; near = k to h
+                dbg.append("$k@${cx.toInt()},${cy.toInt()}${if (inside) " in" else ""} d=${d.toInt()};")
+                if (inside && d < bestD) {
+                    bestD = d
+                    best = k to h
                 }
             }
             val now = SystemClock.uptimeMillis()
             if (now - lastScan > 300) {
                 lastScan = now
-                log("SCAN raw=${sx.toInt()},${sy.toInt()} hit=${(inside ?: near)?.first} $dbg")
+                log("SCAN raw=${sx.toInt()},${sy.toInt()} hit=${best?.first} $dbg")
             }
-            return inside ?: near
+            return best
         }
 
         /** 命中点最上层的 View（局部坐标版，从后往前下钻 = 后添加的在上层） */
@@ -707,10 +704,10 @@ class DayTallyXposed : IXposedHookLoadPackage {
             }.onFailure { log("send failed: $it") }
         }
 
-        private fun handleWidgetEvent(param: MethodHookParam) {
+        private fun handleWidgetEvent(param: MethodHookParam, src: String) {
             val v = param.thisObject as? View ?: return
             val ev = param.args.getOrNull(0) as? MotionEvent ?: return
-            handleWidgetTouch(v, ev, param)
+            handleWidgetTouch(v, ev, param, src)
         }
 
         /**
@@ -718,8 +715,18 @@ class DayTallyXposed : IXposedHookLoadPackage {
          * 这是唯一正确的接法：手指没落在方块上，事件根本到不了这里，
          * 所以文件夹、多任务、弹窗、别的应用怎么点都绝不会误触。
          */
-        private fun handleWidgetTouch(v: View, ev: MotionEvent, param: MethodHookParam) {
+        private fun handleWidgetTouch(v: View, ev: MotionEvent, param: MethodHookParam, src: String) {
             val key = keyOfHost(v) ?: return
+            /* OnLongClickAgent 的 mClientView 可能是上一次触摸留下的旧值：手指明明点在
+               旁边的 App 图标上，也会被当成「还在点这个方块」。所以按下先校验坐标必须
+               真的落在方块矩形里，不在就直接放行给桌面自己处理。 */
+            if (ev.actionMasked == MotionEvent.ACTION_DOWN) {
+                /* 外壳 AppWidgetHostView 比红色方块大一圈（含标题条、内边距），不能拿它判定。
+                   直接问 hostViews 里登记的真实方块矩形：手指下命中的是不是这个 key。 */
+                val hit = hitHost(v.context, ev.rawX, ev.rawY)
+                val inside = hit?.first == key
+                if (!inside) return
+            }
             val ctx = v.context?.applicationContext ?: return
             val root = v.rootView ?: v
 
@@ -751,7 +758,7 @@ class DayTallyXposed : IXposedHookLoadPackage {
                     }
                     pressPending = task
                     v.postDelayed(task, LONG_PRESS_MS)
-                    log("HIT key=$key src=widget")
+                    log("HIT key=$key src=$src")
                 }
 
                 MotionEvent.ACTION_MOVE -> {
@@ -818,7 +825,7 @@ class DayTallyXposed : IXposedHookLoadPackage {
                                 val cv = XposedHelpers.getObjectField(agent, "mClientView") as? View
                                     ?: return@runCatching
                                 if (keyOfHost(cv) == null) return@runCatching
-                                handleWidgetTouch(cv, ev, param)
+                                handleWidgetTouch(cv, ev, param, "agent")
                             }.onFailure { log("agentEvent err: ${it.message}") }
                         }
                     }
@@ -837,7 +844,7 @@ class DayTallyXposed : IXposedHookLoadPackage {
                         c, "dispatchTouchEvent", MotionEvent::class.java,
                         object : XC_MethodHook() {
                             override fun beforeHookedMethod(param: MethodHookParam) {
-                                runCatching { handleWidgetEvent(param) }
+                                runCatching { handleWidgetEvent(param, "host") }
                                     .onFailure { log("widgetEvent err: ${it.message}") }
                             }
                         }
@@ -850,7 +857,7 @@ class DayTallyXposed : IXposedHookLoadPackage {
                     AppWidgetHostView::class.java, "dispatchTouchEvent", MotionEvent::class.java,
                     object : XC_MethodHook() {
                         override fun beforeHookedMethod(param: MethodHookParam) {
-                            runCatching { handleWidgetEvent(param) }
+                            runCatching { handleWidgetEvent(param, "host") }
                                 .onFailure { log("widgetEvent err: ${it.message}") }
                         }
                     }
@@ -969,13 +976,19 @@ class DayTallyXposed : IXposedHookLoadPackage {
                                 }
                                 var selfKey: String? = keyOfHost(v)
                                 var host: View = v
+                                /* 外壳容器（LauncherWidgetView / AppWidgetHostView）都比红色方块大一圈，
+                                   不能只看 keyOfHost 命中就接管；统一用 hostViews 里登记的真实方块矩形判一次。 */
+                                val hitRect = hitHost(
+                                    v.context?.applicationContext ?: return, ev.rawX, ev.rawY
+                                )
                                 if (selfKey == null) {
                                     /* 方块容器不在桌面 DecorView 子树里（实测确认），
                                        只能用登记表 + 屏幕坐标反查 */
-                                    val hit = hitHost(v.context?.applicationContext ?: return, ev.rawX, ev.rawY)
-                                        ?: return
-                                    selfKey = hit.first
-                                    host = hit.second
+                                    if (hitRect == null) return
+                                    selfKey = hitRect.first
+                                    host = hitRect.second
+                                } else if (hitRect?.first != selfKey) {
+                                    return
                                 }
                                 val key = selfKey ?: return
 

@@ -165,7 +165,7 @@ body::before{
 .app-head h2{font-family:var(--num);font-size:25px;font-weight:800;letter-spacing:-.01em}
 .icon-btn{width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:#fff;display:grid;place-items:center;cursor:pointer;color:var(--ink2);transition:transform .16s var(--spring),background .2s}
 .icon-btn:active{transform:scale(.9);background:#F6F1FF}
-/* 项目页标题区：整块是「长按 5 秒进设置」的命中区（真机上就是这个 LinearLayout），
+/* 项目页标题区：整块是「长按 2 秒进设置」的命中区（真机上就是这个 LinearLayout），
    按住时后半句「长按项目进入设置」变红，看得见自己在长按 */
 .app-head .head-hold{padding:2px 0;border-radius:10px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent}
 .app-head .head-hold .hold-hint{color:var(--ink3);transition:color .18s var(--ease)}
@@ -314,7 +314,7 @@ body::before{
 .switch.on .track{background:var(--red)}
 .switch.on .track::after{transform:translateX(16px)}
 
-/* ---------- 隐藏设置页（长按项目标题区或底栏「项目」5 秒进入，不给底栏入口） ---------- */
+/* ---------- 隐藏设置页（长按项目标题区或底栏「项目」2 秒进入，不给底栏入口） ---------- */
 .set-body{flex:1;padding:4px 16px 0;display:flex;flex-direction:column;min-height:0}
 .set-row{border-radius:18px;padding:13px 14px;display:flex;align-items:center;gap:12px;background:linear-gradient(152deg,#FCFBFF,#F2EBFE 58%,#E8DFFB);box-shadow:var(--shadow-card);cursor:pointer;transition:transform .16s var(--spring)}
 .set-row:active{transform:scale(.985)}
@@ -513,7 +513,7 @@ body::before{
               <div class="proj-list" data-region="projects"></div>
             </div>
 
-            <!-- 视图：设置（长按标题区或底栏「项目」5 秒进入，平时隐藏） -->
+            <!-- 视图：设置（长按标题区或底栏「项目」2 秒进入，平时隐藏） -->
             <div class="view" id="view-settings">
               <div class="app-head">
                 <div class="row">
@@ -537,7 +537,7 @@ body::before{
                   </div>
                   <div class="switch on" id="sw-hook"><span class="track"></span></div>
                 </div>
-                <div class="set-ver">日刻 v1.2.5 · 预览版</div>
+                <div class="set-ver">日刻 v1.2.6 · 预览版</div>
               </div>
             </div>
 
@@ -1452,8 +1452,8 @@ document.addEventListener('contextmenu', e => {
 
 /* ============================================================
    隐藏设置页入口（与真机一致）
-   · 项目页标题区副标题行「所有日刻项目 · 长按项目进入设置」整行按住 5 秒
-   · 底栏「项目」Tab：项目页按住 5 秒；今日页按住 1 秒，左上角日期行一起变红
+   · 项目页标题区副标题行「所有日刻项目 · 长按项目进入设置」整行按住 2 秒
+   · 底栏「项目」Tab：项目页按住 2 秒；今日页按住 0.7 秒，左上角日期行一起变红
    按住期间副标题后半段变红，给到「真的在长按」的反馈
    ============================================================ */
 let settingsTimer = null, settingsHoldEl = null, settingsFired = false;
@@ -1465,7 +1465,7 @@ function settingsPressStart(el){
   const homeTab = onHome && isTab;
   const dateEl = document.getElementById('home-date');
   if(homeTab && dateEl) dateEl.classList.add('holding');
-  const ms = homeTab ? 1000 : 5000;
+  const ms = homeTab ? 700 : 2000;
   settingsTimer = setTimeout(() => {
     settingsTimer = null;
     settingsFired = true;

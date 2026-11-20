@@ -126,7 +126,7 @@ class MainActivity : AppCompatActivity() {
                 gravity = Gravity.CENTER
                 tag = key
                 setOnClickListener {
-                    /* 长按 5 秒刚进过设置，抬手这一下不要又切回项目页 */
+                    /* 长按 2 秒刚进过设置，抬手这一下不要又切回项目页 */
                     if (key == "projects" && com.beike.daytally.ui.HoldToSettings.shouldSkipClick()) return@setOnClickListener
                     sound.tabTap()      // 每按必震：单击一下、双击两下
                     val now = android.os.SystemClock.uptimeMillis()
@@ -156,8 +156,8 @@ class MainActivity : AppCompatActivity() {
                 setPadding(0, Ui.dp(this@MainActivity, 3f), 0, 0)
             }
             col.addView(iv); col.addView(tv)
-            /* 底栏「项目」长按 = 进隐藏设置页：今日页 1 秒（左上角日期行跟着变红），
-               项目页 5 秒（副标题「长按项目进入设置」变红）；松手那一下不再触发切换 */
+            /* 底栏「项目」长按 = 进隐藏设置页：今日页 0.7 秒（左上角日期行跟着变红），
+               项目页 2 秒（副标题「长按项目进入设置」变红）；松手那一下不再触发切换 */
             if (key == "projects") {
                 com.beike.daytally.ui.HoldToSettings.install(
                     col,
@@ -180,7 +180,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** 隐藏设置页：只能从项目页长按 5 秒进来（底栏「项目」或标题「项目」都行） */
+    /** 隐藏设置页：只能从项目页长按 2 秒进来（底栏「项目」或标题「项目」都行） */
     private fun openSettings() {
         sound.sheetOpen()
         switchView("settings")
