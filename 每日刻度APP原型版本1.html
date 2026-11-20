@@ -170,6 +170,7 @@ body::before{
 .app-head .head-hold{padding:2px 0;border-radius:10px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent}
 .app-head .head-hold .hold-hint{color:var(--ink3);transition:color .18s var(--ease)}
 .app-head .head-hold.holding .hold-hint{color:var(--red)}
+#home-date.holding{color:var(--red);transition:color .18s var(--ease)}
 .app-body{flex:1;padding:4px 16px 0;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;min-height:0;scrollbar-width:none}
 /* 5 个间隙等距：身高卡之后 1 个 + 4 张计数卡的卡间 3 个 + 末卡与底栏之间 1 个，
    全部由 space-between 均分剩余空间（真机上就是这 5 个 weight 弹簧） */
@@ -531,12 +532,12 @@ body::before{
                     <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="3.6" width="16" height="16.8" rx="4.5"/><path d="M8.4 9.2h7.2M8.4 13.6h4.6"/></svg>
                   </div>
                   <div class="set-t">
-                    <div class="set-nm">接管桌面长按</div>
-                    <div class="set-ds">桌面上长按方块退一组；关掉即刻恢复原生</div>
+                    <div class="set-nm">桌面长按接管</div>
+                    <div class="set-ds">关掉后桌面方块恢复原生长按，可拖动、可移除</div>
                   </div>
                   <div class="switch on" id="sw-hook"><span class="track"></span></div>
                 </div>
-                <div class="set-ver">日刻 v1.2.3 · 预览版</div>
+                <div class="set-ver">日刻 v1.2.5 · 预览版</div>
               </div>
             </div>
 
@@ -1450,27 +1451,36 @@ document.addEventListener('contextmenu', e => {
 });
 
 /* ============================================================
-   隐藏设置页入口（与真机一致的两条通道）
+   隐藏设置页入口（与真机一致）
    · 项目页标题区副标题行「所有日刻项目 · 长按项目进入设置」整行按住 5 秒
-   · 底栏「项目」Tab 按住 5 秒（任何页面都行）
+   · 底栏「项目」Tab：项目页按住 5 秒；今日页按住 1 秒，左上角日期行一起变红
    按住期间副标题后半段变红，给到「真的在长按」的反馈
    ============================================================ */
 let settingsTimer = null, settingsHoldEl = null, settingsFired = false;
 function settingsPressStart(el){
   settingsHoldEl = el;
   el.classList.add('holding');
+  const onHome = (document.querySelector('.view.on') || {}).id === 'view-home';
+  const isTab = el.classList.contains('tab');
+  const homeTab = onHome && isTab;
+  const dateEl = document.getElementById('home-date');
+  if(homeTab && dateEl) dateEl.classList.add('holding');
+  const ms = homeTab ? 1000 : 5000;
   settingsTimer = setTimeout(() => {
     settingsTimer = null;
     settingsFired = true;
     if(settingsHoldEl){ settingsHoldEl.classList.remove('holding'); settingsHoldEl = null; }
+    if(dateEl) dateEl.classList.remove('holding');
     haptic(16); beep(760, .08, .12);
     switchView('settings');
     tabLastTap = {};
-  }, 5000);
+  }, ms);
 }
 function settingsPressEnd(){
   if(settingsTimer){ clearTimeout(settingsTimer); settingsTimer = null; }
   if(settingsHoldEl){ settingsHoldEl.classList.remove('holding'); settingsHoldEl = null; }
+  const dateEl = document.getElementById('home-date');
+  if(dateEl) dateEl.classList.remove('holding');
 }
 document.addEventListener('pointerdown', e => {
   settingsFired = false;

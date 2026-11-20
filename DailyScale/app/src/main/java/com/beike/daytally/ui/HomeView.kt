@@ -25,6 +25,14 @@ class HomeView(ctx: Context, val repo: Repo, val sound: Sound, val cb: HomeCallb
 
     private val WK = listOf("周日", "周一", "周二", "周三", "周四", "周五", "周六")
 
+    /** 页头左上角「今天是 X 月 X 日」，底栏「项目」Tab 按住时跟着变红 */
+    private var dateLine: TextView? = null
+
+    /** 按住/松开时给日期行上色；外部（底栏 Tab 长按）也能调 */
+    fun paintDate(active: Boolean) {
+        dateLine?.setTextColor(if (active) C.RED else C.INK3)
+    }
+
     init {
         orientation = VERTICAL
         setPadding(Ui.dp(ctx, 16f), Ui.dp(ctx, 4f), Ui.dp(ctx, 16f), 0)
@@ -74,6 +82,8 @@ class HomeView(ctx: Context, val repo: Repo, val sound: Sound, val cb: HomeCallb
             setTextColor(C.INK3)
             letterSpacing = 0.04f
         }
+        dateLine = date
+        paintDate(false)
         val title = TextView(context).apply {
             text = "今天做了多少"
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 25f * Ui.S)

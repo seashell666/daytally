@@ -156,9 +156,23 @@ class MainActivity : AppCompatActivity() {
                 setPadding(0, Ui.dp(this@MainActivity, 3f), 0, 0)
             }
             col.addView(iv); col.addView(tv)
-            /* 长按底栏「项目」5 秒 = 进隐藏设置页 */
+            /* 底栏「项目」长按 = 进隐藏设置页：今日页 1 秒（左上角日期行跟着变红），
+               项目页 5 秒（副标题「长按项目进入设置」变红）；松手那一下不再触发切换 */
             if (key == "projects") {
-                com.beike.daytally.ui.HoldToSettings.install(col) { openSettings() }
+                com.beike.daytally.ui.HoldToSettings.install(
+                    col,
+                    holdMs = {
+                        if (current == "home") com.beike.daytally.ui.HoldToSettings.HOLD_MS_HOME
+                        else com.beike.daytally.ui.HoldToSettings.HOLD_MS
+                    },
+                    onDown = {
+                        if (current == "home") home.paintDate(true) else projects.paintHint(true)
+                    },
+                    onUp = {
+                        home.paintDate(false)
+                        projects.paintHint(false)
+                    }
+                ) { openSettings() }
             }
             tabbar.addView(col)
             tabIcons = tabIcons + iv
@@ -213,7 +227,7 @@ class MainActivity : AppCompatActivity() {
         val cur = repo.rawVal(h, repo.todayIdx)
         val et = EditText(this).apply {
             setText(cur?.let { repo.fmt(it, 1) } ?: "")
-            hint = "100 ~ 250 厘米，可带一位小数"
+            hint = "0 ~ 227 厘米"
             inputType = android.text.InputType.TYPE_CLASS_NUMBER or
                 android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f * Ui.S)
@@ -232,7 +246,7 @@ class MainActivity : AppCompatActivity() {
         val valid = {
             val s = et.text.toString().trim()
             val v = s.toDoubleOrNull()
-            s.matches(Regex("""\d{1,3}(\.\d)?""")) && v != null && v in 100.0..250.0
+            s.matches(Regex("""\d{1,3}(\.\d)?""")) && v != null && v in 0.0..227.0
         }
         val commit = {
             h.data[repo.todayStr()] = et.text.toString().trim().toDouble()

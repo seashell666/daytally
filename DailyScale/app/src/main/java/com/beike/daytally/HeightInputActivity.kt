@@ -75,7 +75,7 @@ class HeightInputActivity : Activity() {
         et = EditText(this).apply {
             val today = repo.rawVal(repo.metric("height"), repo.todayIdx)
             setText(today?.let { repo.fmt(it, 1) } ?: "")
-            hint = "100 ~ 250 厘米，可带一位小数"
+            hint = "0 ~ 227 厘米"
             inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f * Ui.S)
             setTextColor(C.INK)
@@ -121,14 +121,14 @@ class HeightInputActivity : Activity() {
     private fun valid(): Boolean {
         val s = et.text.toString().trim().replace(',', '.')
         val v = s.toDoubleOrNull() ?: return false
-        return v in 100.0..250.0
+        return v in 0.0..227.0
     }
 
     /** 保存：落盘 → 收键盘 → 关窗口，一步到位 */
     private fun commit() {
         if (finished) return
         if (!valid()) {
-            et.error = "请输入 100 ~ 250 之间的身高"
+            et.error = "请输入 0 ~ 227 之间的身高"
             return
         }
         val v = et.text.toString().trim().toDouble()

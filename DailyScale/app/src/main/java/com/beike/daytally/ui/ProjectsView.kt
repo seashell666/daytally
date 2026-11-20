@@ -34,17 +34,25 @@ import java.text.DecimalFormat
 
 interface ProjectsCallback { fun gotoHome(); fun gotoSettings() }
 
-/** 长按 5 秒进设置：按下起计时，抬手/滑走就取消，中途不动才算数 */
+/**
+ * 长按进设置：按下起计时，抬手/滑走就取消，中途不动才算数。
+ * 项目页 5 秒，今日页底栏「项目」1 秒。
+ */
 object HoldToSettings {
     const val HOLD_MS = 5000L
-    /** 长按刚触发过的话，抬手那一下的单击就别再执行了 */
-    private var firedAt = 0L
+    const val HOLD_MS_HOME = 1000L
+    /**
+     * 长按已经触发过（已经进了设置页），这个手势抬手时的单击就不能再执行。
+     * 不能按时间窗判：用户可能在设置页停留很久才松手，用时间窗会漏，表现为
+     * 「松手又退回项目页」。这里改成手势级标记：触发即置位，下一次 ACTION_DOWN 才清零。
+     */
+    private var fired = false
 
-    fun shouldSkipClick(): Boolean =
-        SystemClock.uptimeMillis() - firedAt < 900L
+    fun shouldSkipClick(): Boolean = fired
 
     fun install(
         v: View,
+        holdMs: () -> Long = { HOLD_MS },
         onDown: (() -> Unit)? = null,
         onUp: (() -> Unit)? = null,
         onFire: () -> Unit
@@ -55,14 +63,15 @@ object HoldToSettings {
         v.setOnTouchListener { _, ev ->
             when (ev.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
+                    fired = false
                     onDown?.invoke()
                     val r = Runnable {
-                        firedAt = SystemClock.uptimeMillis()
+                        fired = true
                         onUp?.invoke()
                         onFire()
                     }
                     run = r
-                    v.postDelayed(r, HOLD_MS)
+                    v.postDelayed(r, holdMs())
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     run?.let { v.removeCallbacks(it) }
@@ -114,6 +123,26 @@ class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: Proje
     private var lastTap = 0L
     private var cardClickTimer: Runnable? = null
 
+    /** 页头副标题（按住时后半句变红），由底栏长按统一驱动，所以要留成成员 */
+    private val HINT_HEAD = "所有日刻项目 · "
+    private val HINT_TAIL = "长按项目进入设置"
+    private var hintSub: TextView? = null
+
+    /** 按住/松开时给副标题上色；外部（底栏 Tab 长按）也能调 */
+    fun paintHint(active: Boolean) {
+        val sub = hintSub ?: return
+        val s = HINT_HEAD + HINT_TAIL
+        val ss = android.text.SpannableString(s)
+        if (active) {
+            ss.setSpan(
+                android.text.style.ForegroundColorSpan(C.RED),
+                HINT_HEAD.length, s.length,
+                android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+        }
+        sub.text = ss
+    }
+
     init {
         content = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
@@ -153,25 +182,12 @@ class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: Proje
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
         /* 副标题：前半段常灰，后半段「长按项目进入设置」在按住时变红，看得见自己在长按 */
-        val HINT_HEAD = "所有日刻项目 · "
-        val HINT_TAIL = "长按项目进入设置"
         val sub = TextView(context).apply {
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f * Ui.S)
             setTextColor(C.INK3)
             letterSpacing = 0.04f
         }
-        fun paintHint(active: Boolean) {
-            val s = HINT_HEAD + HINT_TAIL
-            val ss = android.text.SpannableString(s)
-            if (active) {
-                ss.setSpan(
-                    android.text.style.ForegroundColorSpan(C.RED),
-                    HINT_HEAD.length, s.length,
-                    android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
-            }
-            sub.text = ss
-        }
+        hintSub = sub
         paintHint(false)
 
         val title = TextView(context).apply {
@@ -328,7 +344,9 @@ class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: Proje
         if (editable) {
             // 单击延迟 250ms 弹纵轴上限，期间来双击则改开通用编辑（与原型一致）
             card.setOnClickListener {
-                sound.tap()     // 每点必震：单击一下、双击两下
+                /* 音效要在「按下瞬间」就出来：等弹窗铺好再响，用户会以为声音是弹窗自带的延迟。
+                   784Hz 短音 + 轻震，和「去记录」弹窗同一串 */
+                sound.sheetOpen()
                 val now = android.os.SystemClock.uptimeMillis()
                 if (now - lastTap < 300L) {
                     cardClickTimer?.let { handler.removeCallbacks(it) }
@@ -357,7 +375,8 @@ class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: Proje
 
     // ---------- 手势 ----------
     private fun onCardLong(m: Metric) {
-        sound.tap()
+        /* 长按进清空弹窗：震动和那记 784Hz 短音同时出现（一个调用里一起触发） */
+        sound.sheetOpen()
         openConfirmReset(m)
     }
 
@@ -466,7 +485,7 @@ class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: Proje
     }
 
     private fun openMaxGroupsSheet(m: Metric) {
-        sound.sheetChime()   // 弹窗出现给一记提示音，和「去记录」弹窗同一个音色
+        /* 提示音已经在点击那一刻响过（sheetOpen），这里不再补，避免听起来「弹窗后才响」 */
         val shell = sheetShell()
         shell.addView(sheetTitle("趋势纵轴上限"))
         val et = field("1 ~ 999（组）", m.maxGroups.toString(), numeric = true, maxLen = 3)
@@ -489,7 +508,7 @@ class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: Proje
     }
 
     private fun openEditSheet(m: Metric) {
-        sound.sheetChime()   // 弹窗出现给一记提示音，和「去记录」弹窗同一个音色
+        /* 同上：双击的第二下也在按下时响过了 */
         val shell = sheetShell()
         shell.addView(sheetTitle("编辑项目"))
         var unit = m.unit

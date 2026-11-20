@@ -219,36 +219,52 @@ class DayTallyXposed : IXposedHookLoadPackage {
 
         /**
          * 按屏幕坐标反查已登记的方块容器。
-         * 实测（MIUI 13 / 小米 11）：LauncherAppWidgetHostView 的 getLocationOnScreen
-         * 报的 y 是「方块中心 + 半个高度」，真实中心 y = loc.y - height/2；
-         * x 偏差 20~70px。所以这里用「最近邻 + 半径阈值」判定，比矩形包含稳。
+         *
+         * 历史坑：早前把 `getLocationOnScreen` 的 y 当成「中心 + 半高」，用 loc.y - h/2 当中心，
+         * 命中区被整体抬高一整格（267px）。用户点上排「俯卧撑」，最近邻算出来的是下排
+         * 「引体向上」→ 加组加错项目。真机复测（2026-11-20）：loc.y = 1383 时方块可见顶边
+         * ≈1390，loc.y 就是**左上角**，中心应为 loc.y + h/2。
+         *
+         * 判定顺序：先看手指是否落在真实矩形里（落在里面最可信），都不在才退回
+         * 最近邻 + 210px 阈值（容手指点偏一点）。
          */
         private fun hitHost(ctx: Context, sx: Float, sy: Float): Pair<String, View>? {
             if (hostViews.isEmpty()) return null
             val loc = IntArray(2)
-            var best: Pair<String, View>? = null
-            var bestD = 210f
+            var inside: Pair<String, View>? = null
+            var insideD = Float.MAX_VALUE
+            var near: Pair<String, View>? = null
+            var nearD = 210f
             val dbg = StringBuilder()
             for ((hv, id) in hostViews.entries.toList()) {
                 val h = hv ?: continue
                 if (h.visibility != View.VISIBLE) continue
                 val k = keyOfHostId(ctx, id) ?: continue
                 h.getLocationOnScreen(loc)
-                val cx = loc[0] + h.width / 2f
-                val cy = loc[1] - h.height / 2f
+                val w = h.width.toFloat()
+                val gh = h.height.toFloat()
+                if (w <= 0f || gh <= 0f) continue
+                val l = loc[0].toFloat()
+                val t = loc[1].toFloat()
+                val r = l + w
+                val b = t + gh
+                val isInside = sx >= l && sx <= r && sy >= t && sy <= b
+                val cx = l + w / 2f
+                val cy = t + gh / 2f
                 val d = Math.hypot((sx - cx).toDouble(), (sy - cy).toDouble()).toFloat()
-                dbg.append("$k@${cx.toInt()},${cy.toInt()} d=${d.toInt()};")
-                if (d < bestD) {
-                    bestD = d
-                    best = k to h
+                dbg.append("$k@${cx.toInt()},${cy.toInt()}${if (isInside) " in" else ""} d=${d.toInt()};")
+                if (isInside) {
+                    if (d < insideD) { insideD = d; inside = k to h }
+                } else if (d < nearD) {
+                    nearD = d; near = k to h
                 }
             }
             val now = SystemClock.uptimeMillis()
             if (now - lastScan > 300) {
                 lastScan = now
-                log("SCAN raw=${sx.toInt()},${sy.toInt()} hit=${best?.first} d=${bestD.toInt()} $dbg")
+                log("SCAN raw=${sx.toInt()},${sy.toInt()} hit=${(inside ?: near)?.first} $dbg")
             }
-            return best
+            return inside ?: near
         }
 
         /** 命中点最上层的 View（局部坐标版，从后往前下钻 = 后添加的在上层） */
