@@ -50,6 +50,7 @@ class MainActivity : AppCompatActivity() {
     private var lastTabKey = ""
     private var lastTabMs = 0L
     private var syncReceiver: BroadcastReceiver? = null
+    private var dataReceiver: BroadcastReceiver? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -129,12 +130,30 @@ class MainActivity : AppCompatActivity() {
             this, syncReceiver, IntentFilter(SyncManager.ACTION_SYNCED),
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
+
+        /* 桌面方块加/减组后，WidgetProvider 会主动发这条广播。
+           如果 App 进程还活着，就在这里当场重绘当前页，不用等下一次同步或切 Tab。 */
+        dataReceiver = object : BroadcastReceiver() {
+            override fun onReceive(c: android.content.Context?, i: android.content.Intent?) {
+                repo.ensureToday()
+                refreshCurrent()
+            }
+        }
+        ContextCompat.registerReceiver(
+            this, dataReceiver, IntentFilter(com.beike.daytally.widget.WidgetRefresh.ACTION_DATA_CHANGED),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+
         /* 顺便把「桌面长按接管」开关的当前状态同步给桌面进程的钩子 */
         com.beike.daytally.ui.ProjectsView.sendHookSwitch(this, com.beike.daytally.ui.ProjectsView.hookEnabled(this))
     }
 
     override fun onStart() {
         super.onStart()
+        /* 从桌面/后台回来时，数据可能已经被方块加/减过；先重绘当前页，不能只做同步。
+           之前这里只发同步请求，同步还没回来时页面会停在旧颜色，切 Tab 才恢复。 */
+        repo.ensureToday()
+        refreshCurrent()
         /* 首次打开；从后台回来也补一次。只在 Wi-Fi 下走，避免拿流量去连家里局域网。 */
         SyncManager.request(this, "app_open")
     }
@@ -142,6 +161,8 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         syncReceiver?.let { runCatching { unregisterReceiver(it) } }
         syncReceiver = null
+        dataReceiver?.let { runCatching { unregisterReceiver(it) } }
+        dataReceiver = null
         super.onDestroy()
     }
 
@@ -247,6 +268,16 @@ class MainActivity : AppCompatActivity() {
     private fun openSettings() {
         sound.sheetOpen()
         switchView("settings")
+    }
+
+    /** 只重绘当前可见页：桌面方块改数据、App 回前台都用它，避免隐藏页做无用重建 */
+    private fun refreshCurrent() {
+        when (current) {
+            "home" -> home.render()
+            "trend" -> trend.render()
+            "projects" -> projects.render()
+            "settings" -> settings.render()
+        }
     }
 
     private fun switchView(key: String) {

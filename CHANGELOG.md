@@ -1,5 +1,15 @@
 # 更新日志
 
+## v1.2.10 — 2026-11-21
+
+**桌面方块的颜色变了，App 里的今天页也立刻跟着变，不用再切页面。**
+
+- **根因**：`WidgetProvider` 的加组/减组长按只调用 `refreshAll()` 刷新桌面组件，没有通知 App；`MainActivity.onStart()` 只发同步请求，没有重绘当前页，同步没回来时页面就停在旧数据。`HomeView.render()` 本身每次都会重建卡片，所以之前只有切到「项目」再切回「今天」才会恢复
+- **修复**：`WidgetRefresh` 新增 `ACTION_DATA_CHANGED` 和 `notifyApp()`；`WidgetProvider` 在 `ACTION_ADD` / `ACTION_REMOVE` 刷新桌面后发广播；`MainActivity` 动态注册 `dataReceiver`，收到广播当场 `refreshCurrent()`，`onStart()` 先 `repo.ensureToday()` + 重绘再同步，`onDestroy()` 注销
+- **真机实测（旧手机 Xiaomi 11 / Android 13）**：自定义 57 组（30 天累计 9964，未达标）先显示白色 2679；点方块加到 58 组（累计 10011，达标），返回 App「今天」页立刻变成金色 2726；长按减回 57 组，返回 App 立刻变回白色 2679。两次都没有切 Tab
+- **文档与截图**：设置页截图更新为「日刻 1.2.10 · 预览版」；README 当前版本与安装链接改到 1.2.10
+- **构建**：`versionCode 13` / `versionName "1.2.10"`；公开包不读 `sync.properties`，带 Token 的本地同步包仍单独构建、只留本机
+
 ## v1.2.9 — 2026-11-21
 
 **桌面手感补强，方块首点不再“看运气”，数据开始在家里同步。**

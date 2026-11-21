@@ -123,6 +123,7 @@ open class WidgetProvider(private val key: String) : AppWidgetProvider() {
                 /* 点方块同时把大卡切到这个项目：两者是一套东西，原型里就是这么联动的 */
                 WeekWidget.setCurrentKey(context, k)
                 refreshAll(context)
+                WidgetRefresh.notifyApp(context)
             }
             ACTION_REMOVE -> {
                 /* 来自 Vector 模块：桌面上长按方块 = 退一组 */
@@ -134,6 +135,7 @@ open class WidgetProvider(private val key: String) : AppWidgetProvider() {
                 /* 减组同样把大卡切到这个项目——加/减是同一套联动，原型里不区分 */
                 WeekWidget.setCurrentKey(context, k)
                 refreshAll(context)
+                WidgetRefresh.notifyApp(context)
             }
         }
     }

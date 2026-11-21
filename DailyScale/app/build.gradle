@@ -37,8 +37,8 @@ android {
         applicationId "com.beike.daytally"
         minSdk 26
         targetSdk 34
-        versionCode 12
-        versionName "1.2.9"
+        versionCode 13
+        versionName "1.2.10"
         resourceConfigurations += ['zh']
         buildConfigField "String", "SYNC_BASE_URL", "\"$syncUrl\""
         buildConfigField "String", "SYNC_TOKEN", "\"$syncToken\""

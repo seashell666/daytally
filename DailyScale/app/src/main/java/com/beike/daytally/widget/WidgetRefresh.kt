@@ -12,6 +12,17 @@ import com.beike.daytally.Repo
  */
 object WidgetRefresh {
 
+    /** 桌面方块加/减组后，通知还活着的 App 进程重绘当前页，避免“今天”页停在旧颜色 */
+    const val ACTION_DATA_CHANGED = "com.beike.daytally.DATA_CHANGED"
+
+    fun notifyApp(ctx: Context) {
+        runCatching {
+            val i = Intent(ACTION_DATA_CHANGED).setPackage(ctx.packageName)
+            i.addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
+            ctx.sendBroadcast(i)
+        }
+    }
+
     /**
      * 把「每组多少个」同步给桌面模块，方块上那颗浮动数字要用它显示 +12 / −11。
      * 不指定包名，桌面进程里模块动态注册的接收器才收得到。

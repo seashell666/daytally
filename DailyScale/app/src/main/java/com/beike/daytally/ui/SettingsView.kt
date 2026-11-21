@@ -156,7 +156,7 @@ class SettingsView(
     }
 
     private fun buildVersion(): View = TextView(context).apply {
-        text = "日刻 1.2.9 · 预览版"
+        text = "日刻 1.2.10 · 预览版"
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f * Ui.S)
         setTextColor(C.INK3)
         setPadding(dp(2f), dp(8f), 0, 0)
