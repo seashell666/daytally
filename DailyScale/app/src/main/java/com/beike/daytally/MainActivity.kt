@@ -1,5 +1,8 @@
 package com.beike.daytally
 
+import android.content.BroadcastReceiver
+import android.content.IntentFilter
+import android.graphics.Color
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -7,20 +10,28 @@ import android.util.TypedValue
 import android.graphics.PorterDuff
 import android.view.Gravity
 import android.view.View
+import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import com.beike.daytally.ui.HomeCallback
 import com.beike.daytally.ui.HomeView
+import com.beike.daytally.ui.ImePad
 import com.beike.daytally.ui.ProjectsCallback
 import com.beike.daytally.ui.ProjectsView
 import com.beike.daytally.ui.SettingsCallback
 import com.beike.daytally.ui.SettingsView
 import com.beike.daytally.ui.TrendCallback
 import com.beike.daytally.ui.TrendView
+import com.beike.daytally.sync.SyncManager
+import com.beike.daytally.sync.SyncNetwork
 import com.beike.daytally.util.C
 import com.beike.daytally.util.Ui
 
@@ -38,18 +49,41 @@ class MainActivity : AppCompatActivity() {
     private var current = "home"
     private var lastTabKey = ""
     private var lastTabMs = 0L
+    private var syncReceiver: BroadcastReceiver? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         repo = Repo.get(this)
         sound = Sound.get(this)
+        /* 不再让系统压缩页面：键盘弹出时如果 ADJUST_RESIZE，今日页 5 张卡会按变矮的
+           窗口重新排版，身高卡上半截会被挤没。这里改成铺满屏幕 + 自己监听键盘高度，
+           页面保持原样，只有弹窗往上让。 */
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = Color.TRANSPARENT
+        window.navigationBarColor = Color.TRANSPARENT
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
 
         val root = FrameLayout(this)
         setContentView(root)
         val main = layoutInflater.inflate(R.layout.activity_main, null)
         root.addView(main)
-        overlay = FrameLayout(this).apply { visibility = View.GONE }
-        root.addView(overlay)
+        /* 页面继续留在状态栏/导航栏安全区里；弹窗层单独铺满整屏，键盘高度自己算 */
+        ViewCompat.setOnApplyWindowInsetsListener(main) { v, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(0, bars.top, 0, bars.bottom)
+            insets
+        }
+        overlay = FrameLayout(this).apply {
+            visibility = View.GONE
+            /* 底栏有 8dp elevation，弹窗层必须更高，否则底部菜单会压到遮罩上面 */
+            elevation = Ui.dp(this@MainActivity, 24f).toFloat()
+        }
+        root.addView(
+            overlay,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        )
 
         val content = main.findViewById<FrameLayout>(R.id.content)
         home = HomeView(this, repo, sound, object : HomeCallback {
@@ -62,7 +96,7 @@ class MainActivity : AppCompatActivity() {
         projects = ProjectsView(this, repo, sound, object : ProjectsCallback {
             override fun gotoHome() = switchView("home")
             override fun gotoSettings() = openSettings()
-        })
+        }, overlay)
         settings = SettingsView(this, sound, object : SettingsCallback {
             override fun leaveSettings() = switchView("projects")
         })
@@ -78,8 +112,37 @@ class MainActivity : AppCompatActivity() {
         handleWidgetIntent(intent)
         /* 打开 App 就把桌面组件刷一遍，保证组件和 App 内数据永远一致 */
         com.beike.daytally.widget.WidgetRefresh.refreshAll(this)
+
+        /* 局域网同步：视图都建好后再装回调/注册，避免首次网络回调早于页面初始化 */
+        SyncNetwork.install(this)
+        syncReceiver = object : BroadcastReceiver() {
+            override fun onReceive(c: android.content.Context?, i: android.content.Intent?) {
+                repo.ensureToday()
+                home.render()
+                trend.render()
+                projects.render()
+                settings.render()
+                com.beike.daytally.widget.WidgetRefresh.refreshAll(this@MainActivity)
+            }
+        }
+        ContextCompat.registerReceiver(
+            this, syncReceiver, IntentFilter(SyncManager.ACTION_SYNCED),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
         /* 顺便把「桌面长按接管」开关的当前状态同步给桌面进程的钩子 */
         com.beike.daytally.ui.ProjectsView.sendHookSwitch(this, com.beike.daytally.ui.ProjectsView.hookEnabled(this))
+    }
+
+    override fun onStart() {
+        super.onStart()
+        /* 首次打开；从后台回来也补一次。只在 Wi-Fi 下走，避免拿流量去连家里局域网。 */
+        SyncManager.request(this, "app_open")
+    }
+
+    override fun onDestroy() {
+        syncReceiver?.let { runCatching { unregisterReceiver(it) } }
+        syncReceiver = null
+        super.onDestroy()
     }
 
     override fun onNewIntent(intent: android.content.Intent) {
@@ -249,8 +312,7 @@ class MainActivity : AppCompatActivity() {
             s.matches(Regex("""\d{1,3}(\.\d)?""")) && v != null && v in 0.0..227.0
         }
         val commit = {
-            h.data[repo.todayStr()] = et.text.toString().trim().toDouble()
-            repo.save(); sound.save(); home.render()
+            repo.setHeight(et.text.toString().trim().toDouble()); sound.save(); home.render()
         }
         et.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
@@ -277,6 +339,7 @@ class MainActivity : AppCompatActivity() {
         overlay.removeAllViews()
         overlay.addView(mask); overlay.addView(box)
         overlay.visibility = View.VISIBLE
+        ImePad.bind(overlay, box, Ui.dp(this, 16f))
         /* 弹窗一出来就聚焦 + 起键盘（豆包输入法会按 inputType 直接出九宫格数字盘） */
         et.requestFocus()
         et.post {

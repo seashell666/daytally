@@ -6,6 +6,7 @@
 #   keyPassword=...
 DailyScale/keystore.properties
 DailyScale/app/keystore/
+DailyScale/sync.properties
 *.jks
 *.keystore
 

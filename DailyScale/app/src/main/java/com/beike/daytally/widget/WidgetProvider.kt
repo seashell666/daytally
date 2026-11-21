@@ -7,6 +7,11 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.os.Build
+import android.os.VibrationAttributes
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.widget.RemoteViews
 import com.beike.daytally.MainActivity
 import com.beike.daytally.R
@@ -25,6 +30,10 @@ open class WidgetProvider(private val key: String) : AppWidgetProvider() {
         const val ACTION_ADD = "com.beike.daytally.WIDGET_ADD"
         const val ACTION_REMOVE = "com.beike.daytally.WIDGET_REMOVE"
         const val EXTRA_KEY = "metric_key"
+        private const val TAP_VIBRATE_MS = 36L
+        private const val TAP_VIBRATE_AMPLITUDE = 255
+        private const val HOLD_VIBRATE_MS = 20L
+        private const val HOLD_VIBRATE_AMPLITUDE = 200
         private const val EXTRA_PAGE = "page"
         private const val EXTRA_METRIC = "metric"
         private val STEP_RES = intArrayOf(
@@ -77,6 +86,11 @@ open class WidgetProvider(private val key: String) : AppWidgetProvider() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             views.setOnClickPendingIntent(R.id.widget_ring, addPi)
+            /* 用户经常直接点数字或「俯卧撑」这三个字。只给圆环挂点击时，点字会落到
+               整张卡片的「打开 App」上，看起来就像点了没反应。把数字和名称也挂成
+               加组，和圆环完全同一套反馈；卡片边缘留白仍然打开趋势页。 */
+            views.setOnClickPendingIntent(R.id.widget_cnt, addPi)
+            views.setOnClickPendingIntent(R.id.widget_lbl, addPi)
 
             // 点卡片：进 App 趋势页
             val openIntent = Intent(context, MainActivity::class.java).apply {
@@ -101,7 +115,10 @@ open class WidgetProvider(private val key: String) : AppWidgetProvider() {
                 val k = intent.getStringExtra(EXTRA_KEY) ?: key
                 val repo = Repo.get(context).also { it.ensureToday() }
                 repo.metric(k).let { repo.addGroup(it) }
-                /* 音效在 App 侧放（后台不受限）；震动由桌面模块负责，那边才有权限 */
+                /* 震动统一放在这里：Vector 钩子拦到点击会发这条广播，没拦到时
+                   RemoteViews 的原生 PendingIntent 也发同一条广播，两条路径都必有反馈。 */
+                vibrate(context, TAP_VIBRATE_MS, TAP_VIBRATE_AMPLITUDE)
+                /* 音效在 App 侧放（后台不受限）；震动统一由 WidgetProvider 发，避免两条路径重复 */
                 Sound.get(context).add()
                 /* 点方块同时把大卡切到这个项目：两者是一套东西，原型里就是这么联动的 */
                 WeekWidget.setCurrentKey(context, k)
@@ -112,6 +129,7 @@ open class WidgetProvider(private val key: String) : AppWidgetProvider() {
                 val k = intent.getStringExtra(EXTRA_KEY) ?: key
                 val repo = Repo.get(context).also { it.ensureToday() }
                 repo.metric(k).let { repo.removeGroup(it) }
+                vibrate(context, HOLD_VIBRATE_MS, HOLD_VIBRATE_AMPLITUDE)
                 Sound.get(context).remove()
                 /* 减组同样把大卡切到这个项目——加/减是同一套联动，原型里不区分 */
                 WeekWidget.setCurrentKey(context, k)
@@ -127,6 +145,38 @@ open class WidgetProvider(private val key: String) : AppWidgetProvider() {
 
     private fun render(context: Context, manager: AppWidgetManager, repo: Repo, id: Int) {
         manager.updateAppWidget(id, buildTile(context, repo, key, javaClass))
+    }
+
+    /**
+     * 桌面反馈震动。单击加组用 36ms + 最大振幅，比旧版 12ms 默认振幅明显得多；
+     * 户外/口袋里也能感觉到，同时不会像长震动那样拖沓。
+     *
+     * Android 13 会把后台 App 的 USAGE_TOUCH 震动标成 ignored_background 直接丢掉，
+     * 所以这里显式用 USAGE_ALARM（系统允许后台响的类别）来保证这条路真的震；
+     * 真机 dumpsys 已确认 36ms、振幅 255、status=finished。
+     */
+    private fun vibrate(context: Context, ms: Long, amplitude: Int) {
+        runCatching {
+            val vib: Vibrator = if (Build.VERSION.SDK_INT >= 31) {
+                (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager)
+                    ?.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+            } ?: return
+            if (!vib.hasVibrator()) return
+            val amp = if (vib.hasAmplitudeControl()) amplitude else VibrationEffect.DEFAULT_AMPLITUDE
+            val effect = VibrationEffect.createOneShot(ms, amp)
+            if (Build.VERSION.SDK_INT >= 31) {
+                val attrs = VibrationAttributes.Builder()
+                    .setUsage(VibrationAttributes.USAGE_ALARM)
+                    .build()
+                vib.vibrate(effect, attrs)
+            } else {
+                @Suppress("DEPRECATION")
+                vib.vibrate(effect)
+            }
+        }
     }
 
     /** 刷新自己这类方块，并连带刷新大卡（数据变了、选中项目也可能变了） */

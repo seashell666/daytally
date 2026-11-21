@@ -2,6 +2,8 @@ package com.beike.daytally
 
 import android.content.Context
 import com.beike.daytally.model.Metric
+import com.beike.daytally.sync.SyncConfig
+import com.beike.daytally.sync.SyncStore
 import com.beike.daytally.util.C
 import org.json.JSONObject
 import java.time.LocalDate
@@ -37,6 +39,7 @@ class Repo private constructor(private val ctx: Context) {
      * 跨天后重建 30 天窗口。
      * 组件进程会长期驻留，若不重建，过了 0 点 `days` 还是昨天的，桌面日期就卡住不动。
      */
+    @Synchronized
     fun ensureToday() {
         val now = LocalDate.now()
         if (now == builtFor) return
@@ -85,6 +88,13 @@ class Repo private constructor(private val ctx: Context) {
         val file = ctx.filesDir.resolve(FILE)
         val defs = defaults()
         if (!file.exists()) {
+            /* 配了同步后端时，新装 App 不再灌 30 天演示数据：先空着，首次同步从服务端拉。
+               没配后端（纯本地版）保留原来的演示种子，方便看完整曲线。 */
+            if (SyncConfig.enabled) {
+                defs.forEach { metrics[it.key] = it }
+                save()
+                return
+            }
             val seed = seed()
             defs.forEach { m ->
                 seed[m.key]?.forEachIndexed { i, v ->
@@ -115,6 +125,7 @@ class Repo private constructor(private val ctx: Context) {
         }
     }
 
+    @Synchronized
     fun save() {
         val root = JSONObject()
         val mj = JSONObject()
@@ -190,21 +201,68 @@ class Repo private constructor(private val ctx: Context) {
         if (dec == 0) v.toInt().toString() else String.format("%.1f", v)
 
     // ---------- 写操作 ----------
+    @Synchronized
     fun addGroup(m: Metric) {
         if (isDone(m)) return
         if (todayRaw(m) >= 99) return
-        m.data[todayStr()] = todayRaw(m) + 1
+        val day = todayStr()
+        /* 先记动作再改本地值：即使随后落盘失败，服务端也还能按动作恢复；
+           动作带 id，重复上传不会多算一组。 */
+        SyncStore.recordCounter(ctx, m.key, day, 1)
+        m.data[day] = todayRaw(m) + 1
         save()
     }
 
+    @Synchronized
     fun removeGroup(m: Metric) {
         if (todayRaw(m) <= 0) return
-        m.data[todayStr()] = todayRaw(m) - 1
+        val day = todayStr()
+        SyncStore.recordCounter(ctx, m.key, day, -1)
+        m.data[day] = todayRaw(m) - 1
         save()
     }
 
+    /** 身高是“设置值”不是“加一组”，同步时按动作时间取最新，不和计数事件相加 */
+    @Synchronized
+    fun setHeight(value: Double) {
+        val day = todayStr()
+        SyncStore.recordSet(ctx, "height", day, value)
+        metric("height").data[day] = value
+        save()
+    }
+
+    /** 项目名称/单位/每组/目标/纵轴上限改完后记一条配置动作 */
+    fun noteConfigChanged(m: Metric) {
+        SyncStore.recordConfig(ctx, m)
+    }
+
+    @Synchronized
     fun resetProject(m: Metric) {
+        SyncStore.recordReset(ctx, m.key)
         m.data.clear()
+        save()
+    }
+
+    /** 服务端权威快照回写：配置和逐日数据整段替换，不再二次触发事件 */
+    @Synchronized
+    fun applyServerSnapshot(metricsJson: JSONObject) {
+        order.forEach { key ->
+            val j = metricsJson.optJSONObject(key) ?: return@forEach
+            val m = metrics[key] ?: return@forEach
+            m.name = j.optString("name", m.name).ifBlank { m.name }
+            m.unit = j.optString("unit", m.unit).ifBlank { m.unit }
+            m.per = j.optInt("per", m.per)
+            m.goal = j.optInt("goal", m.goal)
+            m.maxGroups = j.optInt("maxGroups", m.maxGroups)
+            val data = mutableMapOf<String, Double>()
+            j.optJSONObject("data")?.let { dj ->
+                dj.keys().forEach { d ->
+                    runCatching { data[d] = dj.getDouble(d) }
+                }
+            }
+            m.data.clear()
+            m.data.putAll(data)
+        }
         save()
     }
 }

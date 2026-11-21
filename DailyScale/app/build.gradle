@@ -11,6 +11,24 @@ if (KEYSTORE_PROPS.exists()) {
     KSTORE.load(new FileInputStream(KEYSTORE_PROPS))
 }
 
+// 局域网同步服务地址与 Token：不进仓库。
+// 默认构建（公开包）不读取 sync.properties，避免误把家里的地址/Token 打进 GitHub Release。
+// 只有显式加 -PwithSync=true 才读取，用于给自己手机打的本地同步包。
+def syncEnabled = (rootProject.findProperty("withSync") ?: "false").toString().toBoolean()
+def SYNC_PROPS = rootProject.file("sync.properties")
+def SYNC = new Properties()
+if (syncEnabled) {
+    if (!SYNC_PROPS.exists()) {
+        throw new GradleException("withSync=true 但找不到 DailyScale/sync.properties")
+    }
+    SYNC.load(new FileInputStream(SYNC_PROPS))
+}
+def syncUrl = (syncEnabled ? (SYNC['baseUrl'] ?: '') : '').toString().replace('\\', '\\\\').replace('"', '\\"')
+def syncToken = (syncEnabled ? (SYNC['token'] ?: '') : '').toString().replace('\\', '\\\\').replace('"', '\\"')
+if (syncEnabled && (!syncUrl || !syncToken)) {
+    throw new GradleException("withSync=true 但 sync.properties 的 baseUrl / token 为空")
+}
+
 android {
     namespace 'com.beike.daytally'
     compileSdk 34
@@ -19,9 +37,15 @@ android {
         applicationId "com.beike.daytally"
         minSdk 26
         targetSdk 34
-        versionCode 10
-        versionName "1.2.7"
+        versionCode 12
+        versionName "1.2.9"
         resourceConfigurations += ['zh']
+        buildConfigField "String", "SYNC_BASE_URL", "\"$syncUrl\""
+        buildConfigField "String", "SYNC_TOKEN", "\"$syncToken\""
+    }
+
+    buildFeatures {
+        buildConfig true
     }
 
     signingConfigs {

@@ -3,6 +3,7 @@
     android:id="@+id/tile_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:hapticFeedbackEnabled="false"
     android:paddingLeft="2dp"
     android:paddingTop="3dp"
     android:paddingRight="2dp"
@@ -23,6 +24,7 @@
                 android:id="@+id/widget_ring"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
+                android:hapticFeedbackEnabled="false"
                 android:scaleType="fitCenter" />
 
             <TextView
@@ -31,6 +33,7 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
                 android:gravity="center"
+                android:hapticFeedbackEnabled="false"
                 android:includeFontPadding="false"
                 android:singleLine="true"
                 android:textSize="15sp"
@@ -42,6 +45,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="1dp"
+            android:hapticFeedbackEnabled="false"
             android:includeFontPadding="false"
             android:singleLine="true"
             android:maxLines="1"

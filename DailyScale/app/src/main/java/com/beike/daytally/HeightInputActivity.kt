@@ -2,6 +2,7 @@ package com.beike.daytally
 
 import android.app.Activity
 import android.content.Context
+import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
 import android.text.InputType
@@ -15,6 +16,8 @@ import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.core.view.WindowCompat
+import com.beike.daytally.ui.ImePad
 import com.beike.daytally.util.C
 import com.beike.daytally.util.Ui
 
@@ -35,6 +38,11 @@ class HeightInputActivity : Activity() {
         super.onCreate(savedInstanceState)
         repo = Repo.get(this)
         sound = Sound.get(this)
+        /* 透明窗口要自己收 IME inset：不铺满系统栏的话，Android 会把键盘高度吃掉，
+           App 只能看到“窗口没变”，也就没法把弹窗让到键盘上方。 */
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = Color.TRANSPARENT
+        window.navigationBarColor = Color.TRANSPARENT
         window.setSoftInputMode(
             WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE or
                     WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
@@ -98,8 +106,8 @@ class HeightInputActivity : Activity() {
 
         val box = FrameLayout(this).apply { addView(shell) }
         overlay.addView(mask)
-        /* 弹窗上下居中于整屏。用 ADJUST_NOTHING 保证键盘弹出时窗口不被压缩，
-           否则 Gravity.CENTER 会变成「居中于键盘上方那块可用区」，看起来仍偏上。 */
+        /* 用 ADJUST_NOTHING 保住整屏窗口，再由 ImePad 按系统报的键盘高度把弹窗
+           移到“键盘上方可用区”的中间。不再写死居中，也不再依赖具体输入法多高。 */
         overlay.addView(
             box,
             FrameLayout.LayoutParams(
@@ -110,6 +118,7 @@ class HeightInputActivity : Activity() {
                 setMargins(dp(24f), 0, dp(24f), 0)
             }
         )
+        ImePad.bind(overlay, box, dp(16f))
 
         et.requestFocus()
         et.post {
@@ -133,8 +142,7 @@ class HeightInputActivity : Activity() {
         }
         val v = et.text.toString().trim().toDouble()
         runCatching {
-            repo.metric("height").data[repo.todayStr()] = v
-            repo.save()
+            repo.setHeight(v)
             sound.save()
         }
         close()

@@ -1,0 +1,18 @@
+services:
+  daytally-sync:
+    build: .
+    container_name: daytally-sync
+    restart: unless-stopped
+    ports:
+      - "8787:8787"
+    environment:
+      PORT: "8787"
+      DAYTALLY_DB: /data/daytally.db
+      DAYTALLY_TOKEN: "${DAYTALLY_TOKEN:?请在 .env 里设置 DAYTALLY_TOKEN}"
+    volumes:
+      - ./data:/data
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

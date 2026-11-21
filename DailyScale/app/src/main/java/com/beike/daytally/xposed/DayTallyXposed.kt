@@ -16,8 +16,6 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.os.SystemClock
-import android.os.VibrationEffect
-import android.os.Vibrator
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
@@ -42,7 +40,7 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage
  *   - 抬手（<200ms）：加一组 → 数字 pop 1.15 + 浮动「+每组数」向上飘散
  *   - 按住（≥200ms）：退一组 → 浮动「−每组数」（紫色）
  *
- * 震动放在这一层做：桌面进程是前台、有 VIBRATE 权限，App 在后台会被系统禁掉震动。
+ * 震动统一由 App 的 WidgetProvider 发（原生 PendingIntent 与钩子广播两条路径共用同一处），
  * 音效仍由 App 播放（后台不受限）。
  */
 class DayTallyXposed : IXposedHookLoadPackage {
@@ -53,6 +51,9 @@ class DayTallyXposed : IXposedHookLoadPackage {
         private const val ACTION_PER_SYNC = "com.beike.daytally.PER_SYNC"
         /** App 内「接管桌面长按」开关：关掉即刻恢复原生长按，不用重启桌面 */
         private const val ACTION_HOOK_SWITCH = "com.beike.daytally.HOOK_SWITCH"
+        /** 钩子活着的信号：桌面进程加载到本模块、或成功处理了一次长按，就给 App 发心跳 */
+        private const val ACTION_HOOK_ALIVE = "com.beike.daytally.HOOK_ALIVE"
+        private const val HOOK_TOKEN = "daytally-hook-v1"
         private const val EXTRA_KEY = "metric_key"
         private const val TAG = "DayTally"
         private const val SELF_PKG = "com.beike.daytally"
@@ -60,6 +61,8 @@ class DayTallyXposed : IXposedHookLoadPackage {
         /** 长按阈值：0.2 秒（用户要求，原 380ms） */
         private const val LONG_PRESS_MS = 150L
         private const val SLOP = 60f
+        /** 方块边缘只放宽 4px：补掉“差一两像素点不上”的手感，又不会抢旁边图标 */
+        private const val HIT_SLOP = 4f
 
         private const val ADD_COLOR = 0xFFC9414E.toInt()   // HTML: '#C9414E'
         private const val SUB_COLOR = 0xFF6E58BE.toInt()   // HTML: '#6E58BE'
@@ -208,6 +211,35 @@ class DayTallyXposed : IXposedHookLoadPackage {
             return k
         }
 
+        /**
+         * 沿 View 父链找方块宿主。用户点在「俯卧撑」文字上时，真正带 appWidgetId 的
+         * 是外面那层 AppWidgetHostView；只对当前叶子 View 调 keyOfHost 会返回 null，
+         * 首点就会被放过去，表现成“点字没反应”。这里一次找到 key + 宿主 View。
+         */
+        private fun keyAndHost(v: View): Pair<String, View>? {
+            var x: View? = v
+            var depth = 0
+            while (x != null && depth < 10) {
+                val cur = x ?: break
+                keyOfHost(cur)?.let { return it to cur }
+                x = cur.parent as? View
+                depth++
+            }
+            return null
+        }
+
+        /** 手指是否落在这个 View 自己的矩形里（用于 hostViews 还没登记时的兜底） */
+        private fun rectContains(v: View, sx: Float, sy: Float, slop: Float = HIT_SLOP): Boolean {
+            if (v.visibility != View.VISIBLE) return false
+            if (v.width <= 0 || v.height <= 0) return false
+            val loc = IntArray(2)
+            v.getLocationOnScreen(loc)
+            val l = loc[0].toFloat()
+            val t = loc[1].toFloat()
+            return sx >= l - slop && sx <= l + v.width + slop &&
+                    sy >= t - slop && sy <= t + v.height + slop
+        }
+
         /** 按 appWidgetId 反查方块 key（不依赖 View 在不在树里） */
         private fun keyOfHostId(ctx: Context, id: Int): String? {
             if (id < 0) return null
@@ -246,7 +278,8 @@ class DayTallyXposed : IXposedHookLoadPackage {
                 val t = loc[1].toFloat()
                 val r = l + w
                 val b = t + gh
-                val inside = sx >= l && sx <= r && sy >= t && sy <= b
+                val inside = sx >= l - HIT_SLOP && sx <= r + HIT_SLOP &&
+                        sy >= t - HIT_SLOP && sy <= b + HIT_SLOP
                 val cx = l + w / 2f
                 val cy = t + gh / 2f
                 val d = Math.hypot((sx - cx).toDouble(), (sy - cy).toDouble()).toFloat()
@@ -521,15 +554,6 @@ class DayTallyXposed : IXposedHookLoadPackage {
             }
         }
 
-        private fun vibrate(v: View, ms: Int) {
-            runCatching {
-                val ctx = v.context?.applicationContext ?: return
-                val vib = ctx.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator ?: return
-                if (!vib.hasVibrator()) return
-                vib.vibrate(VibrationEffect.createOneShot(ms.toLong(), VibrationEffect.DEFAULT_AMPLITUDE))
-            }
-        }
-
         /** 数字 pop：1 → 1.15 → 1（对齐 @keyframes pop，.38s） */
         private fun popNumber(host: View) {
             runCatching {
@@ -716,98 +740,123 @@ class DayTallyXposed : IXposedHookLoadPackage {
          * 所以文件夹、多任务、弹窗、别的应用怎么点都绝不会误触。
          */
         private fun handleWidgetTouch(v: View, ev: MotionEvent, param: MethodHookParam, src: String) {
-            val key = keyOfHost(v) ?: return
-            /* OnLongClickAgent 的 mClientView 可能是上一次触摸留下的旧值：手指明明点在
-               旁边的 App 图标上，也会被当成「还在点这个方块」。所以按下先校验坐标必须
-               真的落在方块矩形里，不在就直接放行给桌面自己处理。 */
-            if (ev.actionMasked == MotionEvent.ACTION_DOWN) {
-                /* 外壳 AppWidgetHostView 比红色方块大一圈（含标题条、内边距），不能拿它判定。
-                   直接问 hostViews 里登记的真实方块矩形：手指下命中的是不是这个 key。 */
-                val hit = hitHost(v.context, ev.rawX, ev.rawY)
-                val inside = hit?.first == key
-                if (!inside) return
-            }
             val ctx = v.context?.applicationContext ?: return
             val root = v.rootView ?: v
 
+            /* 同一个手势的 DOWN/MOVE/UP 可能被不同层 View 接到（尤其首点、刚刷新完
+               widget 的时候）。只认 downTime，不再要求“抬手这一层 === 按下那一层”，
+               避免按下被吃掉、抬手却被另一层接走，最后什么都没加。 */
+            if (ev.actionMasked != MotionEvent.ACTION_DOWN && !sameGesture(ev)) return
+
             when (ev.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
+                    if (sameGesture(ev)) {
+                        param.result = true
+                        return
+                    }
+                    if (pressKey != null) cancelPress()
                     ensureReceiver(ctx)
                     if (!hookEnabled) return
-                    val token = pressToken.incrementAndGet()
-                    pressKey = key
-                    pressHost = v
-                    pressLayer = v
-                    pressAt = SystemClock.uptimeMillis()
-                    pressDownTime = ev.downTime
-                    pressX = ev.rawX
-                    pressY = ev.rawY
-                    fired = false
-                    param.result = true
-                    squash(v)
 
-                    val task = Runnable {
-                        if (token != pressToken.get() || pressKey != key) return@Runnable
-                        fired = true
-                        val c = v.context?.applicationContext ?: ctx
-                        send(c, ACTION_REMOVE, key)
-                        vibrate(v, 20)                       // HTML: haptic(20)
-                        val per = perMap[key] ?: 0
-                        if (per > 0) floatText(root, v, "−$per", SUB_COLOR, pressX, pressY)
-                        log("LONG key=$key")
+                    val kp = keyAndHost(v) ?: return
+                    val key = kp.first
+                    val host = kp.second
+                    /* hostViews 登记表偶尔还没建好（刚重启桌面/刚刷新组件），此时不能
+                       直接 return；退一步用当前叶子 View 或宿主 View 自己的矩形兜底。
+                       这样首点也能加，不会再出现“第一次点了没反应”。 */
+                    val hit = hitHost(ctx, ev.rawX, ev.rawY)
+                    val inside = if (hit != null) {
+                        hit.first == key
+                    } else {
+                        rectContains(v, ev.rawX, ev.rawY) || rectContains(host, ev.rawX, ev.rawY)
                     }
-                    pressPending = task
-                    v.postDelayed(task, LONG_PRESS_MS)
-                    log("HIT key=$key src=$src")
+                    if (!inside) return
+
+                    beginPress(key, host, v, ev, ctx)
+                    param.result = true
+                    squash(host)
+                    log("HIT key=$key src=$src layer=${v.javaClass.simpleName}")
                 }
 
                 MotionEvent.ACTION_MOVE -> {
-                    if (pressLayer !== v) return
                     if (pressKey == null) return
                     if (Math.abs(ev.rawX - pressX) > SLOP || Math.abs(ev.rawY - pressY) > SLOP) {
-                        pressPending?.let { pressHost?.removeCallbacks(it) }
-                        pressPending = null
-                        runCatching { pressHost?.let { restore(it) } }
-                        pressKey = null
-                        pressHost = null
-                        pressLayer = null
+                        cancelPress()
                     }
                     param.result = true
                 }
 
                 MotionEvent.ACTION_UP -> {
-                    if (pressLayer !== v) return
-                    val k = pressKey ?: return
+                    val key = pressKey ?: return
                     val host = pressHost ?: v
-                    pressPending?.let { pressHost?.removeCallbacks(it) }
-                    pressPending = null
-                    if (!fired) {
-                        send(ctx, ACTION_ADD, k)
-                        vibrate(host, 12)                       // HTML: haptic(12)
-                        popNumber(host)
-                        val per = perMap[k] ?: 0
-                        if (per > 0) floatText(root, host, "+$per", ADD_COLOR, pressX, pressY)
-                        log("TAP key=$k held=${SystemClock.uptimeMillis() - pressAt}")
-                    }
-                    runCatching { restore(host) }
-                    pressKey = null
-                    pressHost = null
-                    pressLayer = null
+                    finishPress(root, key, host)
                     param.result = true
                 }
 
                 MotionEvent.ACTION_CANCEL -> {
-                    if (pressLayer !== v) return
                     if (pressKey == null) return
-                    pressPending?.let { pressHost?.removeCallbacks(it) }
-                    pressPending = null
-                    runCatching { pressHost?.let { restore(it) } }
-                    pressKey = null
-                    pressHost = null
-                    pressLayer = null
+                    cancelPress()
                     param.result = true
                 }
             }
+        }
+
+        private fun sameGesture(ev: MotionEvent): Boolean =
+            pressKey != null && ev.downTime == pressDownTime
+
+        private fun beginPress(key: String, host: View, layer: View, ev: MotionEvent, ctx: Context) {
+            val token = pressToken.incrementAndGet()
+            pressKey = key
+            pressHost = host
+            pressLayer = layer
+            pressAt = SystemClock.uptimeMillis()
+            pressDownTime = ev.downTime
+            pressX = ev.rawX
+            pressY = ev.rawY
+            fired = false
+
+            val task = Runnable {
+                if (token != pressToken.get() || pressKey != key) return@Runnable
+                fired = true
+                val c = host.context?.applicationContext ?: ctx
+                send(c, ACTION_REMOVE, key)
+                val per = perMap[key] ?: 0
+                val r = host.rootView ?: host
+                if (per > 0) floatText(r, host, "−$per", SUB_COLOR, pressX, pressY)
+                log("LONG key=$key")
+                notifyApp(host.context, hit = true)
+            }
+            pressPending = task
+            host.postDelayed(task, LONG_PRESS_MS)
+        }
+
+        /** 抬手：没触发长按就加一组；触发过长按就只收尾，不重复加 */
+        private fun finishPress(root: View, key: String, host: View) {
+            pressPending?.let { pressHost?.removeCallbacks(it) }
+            pressPending = null
+            if (!fired) {
+                val ctx = host.context?.applicationContext
+                if (ctx != null) {
+                    send(ctx, ACTION_ADD, key)
+                    popNumber(host)
+                    val per = perMap[key] ?: 0
+                    if (per > 0) floatText(root, host, "+$per", ADD_COLOR, pressX, pressY)
+                    log("TAP key=$key held=${SystemClock.uptimeMillis() - pressAt}")
+                }
+            }
+            restore(host)
+            pressKey = null
+            pressHost = null
+            pressLayer = null
+        }
+
+        private fun cancelPress() {
+            pressPending?.let { pressHost?.removeCallbacks(it) }
+            pressPending = null
+            pressHost?.let { restore(it) }
+            pressKey = null
+            pressHost = null
+            pressLayer = null
         }
 
         /** 挂 MIUI / 标准两种方块容器的 dispatchTouchEvent */
@@ -896,7 +945,24 @@ class DayTallyXposed : IXposedHookLoadPackage {
                         ctx.registerReceiver(r, f)
                     }
                     receiverRegistered = true
+                    /* 第一次摸到方块就说明钩子已经活在桌面进程里了，顺手告诉 App 一声 */
+                    notifyApp(ctx, hit = false)
                 }
+            }
+        }
+
+        /** 给 App 发自检心跳：App 设置页据此显示“桌面长按已接上/还没接上” */
+        private fun notifyApp(ctx: Context?, hit: Boolean) {
+            val c = ctx?.applicationContext ?: return
+            runCatching {
+                val i = Intent(ACTION_HOOK_ALIVE).apply {
+                    setClassName(SELF_PKG, "$SELF_PKG.HookStateReceiver")
+                    putExtra("token", HOOK_TOKEN)
+                    putExtra("pkg", c.packageName)
+                    putExtra("hit", hit)
+                    addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
+                }
+                c.sendBroadcast(i)
             }
         }
 
@@ -926,44 +992,16 @@ class DayTallyXposed : IXposedHookLoadPackage {
 
                         when (ev.actionMasked) {
                             MotionEvent.ACTION_DOWN -> {
-                                /* 同一手势会沿视图树逐层触发本钩子，共享同一个 downTime；
-                                   第一层（必然是 DecorView）已经接管，后面每层都要把事件吃掉，
-                                   否则事件会继续流到方块容器，触发 RemoteViews 自己的点击。 */
-                                val sameGesture = pressKey != null && ev.downTime == pressDownTime
-                                if (sameGesture) {
+                                /* 同一手势会沿视图树逐层触发本钩子，共享同一个 downTime。
+                                   只认 downTime；不要要求“当前这一层等于按下那一层”。 */
+                                if (sameGesture(ev)) {
                                     param.result = true
                                     return
                                 }
-                                if (pressKey != null) {
-                                    runCatching {
-                                        pressPending?.let { pressHost?.removeCallbacks(it) }
-                                        pressPending = null
-                                        pressHost?.let { restore(it) }
-                                        pressKey = null
-                                        pressHost = null
-                                        pressLayer = null
-                                    }
-                                }
+                                if (pressKey != null) cancelPress()
                                 ensureReceiver(ctx)
                                 if (!hookEnabled) return
-                                /* 不再用 hasWindowFocus() 当门禁：MIUI 桌面上它在文件夹/多任务态下
-                                   依旧报 true（实测不可靠），遮挡交给 deepestAtLocal 判定。 */
 
-                                /* ★★ 误触修复 ★★
-                                   路径一：如果事件这一层本身就是方块容器，直接接管（最理想，
-                                           被文件夹/多任务盖住时容器收不到事件，天然免疫）。
-                                   路径二：MIUI 的组件容器不一定接得到 dispatchTouchEvent，所以留兜底——
-                                           在 DecorView 层用 hitTest 命中方块，再做「遮挡检测」：
-                                           命中点最上层最深的那个 View 必须属于该方块容器，否则说明
-                                           上面盖着文件夹/多任务浮层，不接管。 */
-                                /* ★★ 误触修复 ★★
-                                   DecorView 往下，事件每经过一层就看这一层：
-                                   命中点上方盖着的最上层子 View 是不是方块这一支的。
-                                   - 是（Workspace → CellLayout → 方块容器）→ 正常接管
-                                   - 不是（文件夹浮层 / 多任务卡片盖在上面）→ 立即放过，事件
-                                     原样交给它们，绝不会再出现「点文件夹里的应用结果加了组」
-                                   DecorView 只有一个全屏子，看不出区别，所以这一层直接放过。 */
-                                if (v === root) return
                                 val now0 = SystemClock.uptimeMillis()
                                 if (now0 - lastHit > 300) {
                                     lastHit = now0
@@ -974,96 +1012,48 @@ class DayTallyXposed : IXposedHookLoadPackage {
                                     log("OVERLAY skip raw=${ev.rawX.toInt()},${ev.rawY.toInt()}")
                                     return
                                 }
-                                var selfKey: String? = keyOfHost(v)
-                                var host: View = v
-                                /* 外壳容器（LauncherWidgetView / AppWidgetHostView）都比红色方块大一圈，
-                                   不能只看 keyOfHost 命中就接管；统一用 hostViews 里登记的真实方块矩形判一次。 */
-                                val hitRect = hitHost(
-                                    v.context?.applicationContext ?: return, ev.rawX, ev.rawY
-                                )
-                                if (selfKey == null) {
-                                    /* 方块容器不在桌面 DecorView 子树里（实测确认），
-                                       只能用登记表 + 屏幕坐标反查 */
-                                    if (hitRect == null) return
-                                    selfKey = hitRect.first
-                                    host = hitRect.second
-                                } else if (hitRect?.first != selfKey) {
-                                    return
-                                }
-                                val key = selfKey ?: return
 
-                                val token = pressToken.incrementAndGet()
-                                pressKey = key
-                                pressHost = host
-                                pressLayer = v
-                                pressAt = SystemClock.uptimeMillis()
-                                pressDownTime = ev.downTime
-                                pressX = ev.rawX
-                                pressY = ev.rawY
-                                fired = false
+                                /* 优先沿父链找真正的方块宿主；找不到再用 hostViews 坐标表。
+                                   两条路都拿不到就放行，绝不抢桌面图标/文件夹的点击。 */
+                                val kp = keyAndHost(v)
+                                val hitRect = hitHost(ctx, ev.rawX, ev.rawY)
+                                val key = kp?.first ?: hitRect?.first ?: return
+                                if (kp != null && hitRect != null && hitRect.first != key) return
+                                val host = kp?.second ?: hitRect?.second ?: v
+                                val inside = if (hitRect != null) {
+                                    hitRect.first == key
+                                } else {
+                                    rectContains(v, ev.rawX, ev.rawY) || rectContains(host, ev.rawX, ev.rawY)
+                                }
+                                if (!inside) return
+
+                                beginPress(key, host, v, ev, ctx)
                                 param.result = true
                                 squash(host)
-
-                                val task = Runnable {
-                                    if (token != pressToken.get() || pressKey != key) return@Runnable
-                                    fired = true
-                                    val c = host.context?.applicationContext ?: ctx
-                                    send(c, ACTION_REMOVE, key)
-                                    vibrate(host, 20)                       // HTML: haptic(20)
-                                    val per = perMap[key] ?: 0
-                                    if (per > 0) floatText(root, host, "−$per", SUB_COLOR, pressX, pressY)
-                                    log("LONG key=$key")
-                                }
-                                pressPending = task
-                                host.postDelayed(task, LONG_PRESS_MS)
-
                                 log("HIT key=$key layer=${v.javaClass.simpleName} host=${host.javaClass.simpleName}")
                             }
 
                             MotionEvent.ACTION_MOVE -> {
-                                if (pressLayer !== v) return
+                                if (!sameGesture(ev)) return
                                 if (pressKey == null) return
                                 if (Math.abs(ev.rawX - pressX) > SLOP || Math.abs(ev.rawY - pressY) > SLOP) {
-                                    pressPending?.let { pressHost?.removeCallbacks(it) }
-                                    pressPending = null
-                                    pressHost?.let { restore(it) }
-                                    pressKey = null
-                                    pressHost = null
-                                    pressLayer = null
+                                    cancelPress()
                                 }
                                 param.result = true
                             }
 
                             MotionEvent.ACTION_UP -> {
-                                if (pressLayer !== v) return
+                                if (!sameGesture(ev)) return
                                 val key = pressKey ?: return
                                 val host = pressHost ?: v
-                                pressPending?.let { pressHost?.removeCallbacks(it) }
-                                pressPending = null
-                                if (!fired) {
-                                    send(ctx, ACTION_ADD, key)
-                                    vibrate(host, 12)                       // HTML: haptic(12)
-                                    popNumber(host)
-                                    val per = perMap[key] ?: 0
-                                    if (per > 0) floatText(root, host, "+$per", ADD_COLOR, pressX, pressY)
-                                    log("TAP key=$key held=${SystemClock.uptimeMillis() - pressAt}")
-                                }
-                                restore(host)
-                                pressKey = null
-                                pressHost = null
-                                pressLayer = null
+                                finishPress(root, key, host)
                                 param.result = true
                             }
 
                             MotionEvent.ACTION_CANCEL -> {
-                                if (pressLayer !== v) return
+                                if (!sameGesture(ev)) return
                                 if (pressKey == null) return
-                                pressPending?.let { pressHost?.removeCallbacks(it) }
-                                pressPending = null
-                                pressHost?.let { restore(it) }
-                                pressKey = null
-                                pressHost = null
-                                pressLayer = null
+                                cancelPress()
                                 param.result = true
                             }
                         }
@@ -1073,6 +1063,22 @@ class DayTallyXposed : IXposedHookLoadPackage {
         }.onFailure { log("hook failed: $it") }
 
         hookWidgetTouch(lpparam.classLoader)
+
+        /* 最稳的一层：直接挂 AppWidgetHostView 自己的 dispatchTouchEvent。
+           首点、刚刷新完组件、hostViews 还没登记时也一定能接到；点空白/点字/点圆环
+           都会走这里。前面两层留着，是防 MIUI 把事件在更外层截走。 */
+        runCatching {
+            XposedHelpers.findAndHookMethod(
+                AppWidgetHostView::class.java, "dispatchTouchEvent", MotionEvent::class.java,
+                object : XC_MethodHook() {
+                    override fun beforeHookedMethod(param: MethodHookParam) {
+                        runCatching { handleWidgetEvent(param, "host") }
+                            .onFailure { log("hostEvent err: ${it.message}") }
+                    }
+                }
+            )
+            log("AppWidgetHostView touch hook ok")
+        }.onFailure { log("AppWidgetHostView touch hook fail: ${it.message}") }
 
         /* MIUI 桌面的 AppWidgetHostView 不在 DecorView 子树里（实测 rootKids=1、
            DragContainerLayout kids=0），所以只能在「创建那一刻」把容器登记进 hostViews，

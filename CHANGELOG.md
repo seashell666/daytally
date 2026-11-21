@@ -1,5 +1,32 @@
 # 更新日志
 
+## v1.2.9 — 2026-11-21
+
+**桌面手感补强，方块首点不再“看运气”，数据开始在家里同步。**
+
+- **单击震动改成 36ms + 最大振幅**：`WidgetProvider` 单击从 12ms 提到 36ms、振幅 255；长按保持 20ms / 200。真机 `dumpsys vibrator_manager` 确认 `duration=36ms`、`amplitude=1.0`、`status=finished`
+- **修 Android 13 后台丢震动**：原来用 `USAGE_TOUCH`，桌面点击时 App 在后台，系统记成 `ignored_background` 直接不震；改用后台允许的 `USAGE_ALARM` 后，真机户外/口袋场景实际能震。四个方块共用一个 Provider，不会双震
+- **修“点俯卧撑文字上半部第一次没反应”**：`keyAndHost()` 沿父链最多 10 层找真正的 `AppWidgetHostView`；`hostViews` 登记表没建好时用当前叶子/宿主矩形兜底；新增 `AppWidgetHostView.dispatchTouchEvent` 直挂；抬手只认 `downTime`，不再要求按下层和抬层层相同；命中矩形边缘放宽 4px
+- **文字/数字/圆环都能加组**：`widget_lbl`、`widget_cnt`、`widget_ring` 都挂同一个加组 `PendingIntent`；点卡片边缘留白仍然进 App，不会再加一组
+- **设置页精简**：删掉独立的“桌面长按体检”卡片（含桌面包名、心跳时间、复制按钮、Toast），状态徽标直接并进「桌面长按接管」标题行；绿色「已接上」、黄色「该复测了」、红色「未接上」保留。版本文案改为「日刻 1.2.9 · 预览版」
+- **局域网同步后端**：新增 `server/`（Python 标准库 + SQLite + Docker），`docker-compose.yml` 映射 `8787:8787`、`./data:/data`、`restart: unless-stopped`
+- **同步合并按事件，不按整值覆盖**：加/减记 `add`/`remove` 事件，服务端按事件 id 去重后求和；A 加 3、B 加 1 最终 4；身高/配置按 `occurredAt` 取最新；清空记截止时间；空库才用首台手机快照播种
+- **客户端触发**：首次打开 App、Wi‑Fi 重连、每次本地改动后 1.8 秒合并请求；只走 Wi‑Fi。`SyncStore` 把事件队列持久化到 `filesDir/sync_events.json`，`SyncManager` 推事件并拉权威快照，`Repo.applyServerSnapshot()` 整段替换本地配置和逐日数据
+- **真机实测**：重启桌面后第一次点俯卧撑文字上半部 → +1；四个方块分别点文字/数字/圆环 → 各自 +1；`dumpsys` 记录 36ms/255/finished；模拟第二台设备加 2 组 → 服务端到 25，本机重新打开 App 从 23 拉到 25；断 Wi‑Fi 加 1 组 → 重连后 `sync wifi_reconnect ok`，服务端到 26
+- **文档与截图**：README 补设置页截图（`docs/screenshots/settings.png`）、真机桌面组件图（`docs/screenshots/widgets-real.jpg`）、后端部署/维护章节；公开包默认不读 `sync.properties`，只有显式加 `-PwithSync=true` 才把家里服务器的地址/Token 写进 `BuildConfig`，避免公开泄露
+- **构建**：`versionCode 12` / `versionName "1.2.9"`
+
+## v1.2.8 — 2026-11-21
+
+**弹窗跟着键盘让位，Vector 首次启用能在 App 里自检。**
+
+- **身高弹窗 / 编辑项目不再被输入法盖住，也不悬在上半屏**：新增 `ImePad`，默认保持整屏居中，只有弹窗底边会被键盘压到时才最小幅度上移，并与键盘留 16dp；`MainActivity` 改成 edge-to-edge + `ADJUST_NOTHING`，键盘弹起时首页不再按变矮的窗口重排，「记录身高」背后的身高卡不会被压扁/裁掉。真机实测身高弹窗几乎在整屏正中，编辑项目弹窗也在尽量靠中间的位置并完整露出
+- **底栏不再压到弹窗上面**：项目页弹窗统一改挂到 App 最顶层的 overlay，并抬高到 24dp，盖住 8dp 的底栏和页面内容；点遮罩关闭时不会误触「今天 / 趋势 / 项目」
+- **桌面长按体检**：桌面模块加载 / 长按成功时给 App 发心跳，设置页显示「已接上 / 该复测了 / 未接上」、来源桌面包名和最近心跳时间；没接上时直接给出 Vector 三步（筛选「系统应用」→ 搜 `com.miui.home` → 勾「系统桌面」并应用），按钮可复制当前桌面包名
+- **推荐作用域**：Manifest 增加 `xposedscope`，Vector 会优先把系统桌面列为推荐应用
+- **新手机实测**：小米 11 / Android 13 / Vector 2.2，勾选 `com.miui.home` 并重启桌面后，长按「蹲马步」从 5 组掉到 4 组；App 心跳台账收到 `com.miui.home` 与 `hook_hit=true`
+- **构建**：`versionCode 11` / `versionName "1.2.8"`
+
 ## v1.2.7 — 2026-11-20
 
 **设置入口两边都收在 0.7 秒。**

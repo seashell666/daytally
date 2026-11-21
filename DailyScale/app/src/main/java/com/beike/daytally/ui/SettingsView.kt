@@ -10,6 +10,7 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.beike.daytally.HookState
 import com.beike.daytally.R
 import com.beike.daytally.Sound
 import com.beike.daytally.util.C
@@ -105,12 +106,37 @@ class SettingsView(
             ).apply { topMargin = dp(12f); bottomMargin = dp(20f) }
         }
         val col = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
-        col.addView(TextView(context).apply {
+        val info = HookState.read(context)
+        val titleRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        titleRow.addView(TextView(context).apply {
             text = "桌面长按接管"
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f * Ui.S)
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(C.INK)
+        }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        titleRow.addView(TextView(context).apply {
+            text = when {
+                !info.seen -> "未接上"
+                !info.afterBoot -> "该复测了"
+                !info.fresh -> "该复测了"
+                else -> "已接上"
+            }
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f * Ui.S)
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(
+                when {
+                    !info.seen || !info.afterBoot -> C.RED
+                    !info.fresh -> C.GOLD_DEEP
+                    else -> C.GREEN
+                }
+            )
+            setPadding(dp(8f), dp(3f), dp(8f), dp(3f))
+            background = context.getDrawable(R.drawable.bg_proj_ic)
         })
+        col.addView(titleRow)
         col.addView(TextView(context).apply {
             text = "关掉后桌面方块恢复原生长按，可拖动、可移除"
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f * Ui.S)
@@ -130,7 +156,7 @@ class SettingsView(
     }
 
     private fun buildVersion(): View = TextView(context).apply {
-        text = "日刻 1.2.7 · 预览版"
+        text = "日刻 1.2.9 · 预览版"
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f * Ui.S)
         setTextColor(C.INK3)
         setPadding(dp(2f), dp(8f), 0, 0)

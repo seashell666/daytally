@@ -12,9 +12,9 @@
 
 ## 当前版本
 
-**1.2.7**（2026-11-20）——设置入口再提速：项目页长按「项目」**0.7 秒**进设置，今日页按住底栏「项目」也统一为 **0.7 秒**（原来 2 秒 / 0.7 秒）。方块命中区继续只认红色本体，红块外一点点、上下排缝隙、旁边 App 图标都不会再加组。完整记录见 [CHANGELOG.md](CHANGELOG.md)。
+**1.2.9**（2026-11-21）——桌面反馈和局域网同步这一轮。桌面方块单击震动改成 **36ms + 最大振幅**，并绕过 Android 13 对后台 App 的震动限制，户外也能感觉到；点方块文字上半部“第一次没反应、之后才正常”的问题修掉，四个方块的文字/数字/圆环都挂了加组点击；设置页删掉单独的“桌面长按体检”卡片，把“已接上 / 该复测了 / 未接上”并进“桌面长按接管”标题行。新增树莓派局域网同步后端（Docker + SQLite）：手机打开 App、Wi‑Fi 重连、每次加组后都会对齐；两台手机同时加组按事件求和，不互相覆盖。完整记录见 [CHANGELOG.md](CHANGELOG.md)。
 
-安装包在 [Releases](https://github.com/seashell666/daytally/releases/tag/v1.2.7)，装完记得重启一次手机让 LSPosed 重新加载桌面钩子。
+安装包在 [Releases](https://github.com/seashell666/daytally/releases/tag/v1.2.9)，装完记得重启一次手机让 LSPosed 重新加载桌面钩子。
 
 ---
 
@@ -38,19 +38,27 @@
 
 **项目页**：每个项目的每组数量、累计、目标、纵轴范围，点卡片可改设置。
 
+**隐藏设置页**：项目页长按「项目」二字 0.7 秒（底栏「项目」Tab 长按 0.7 秒也行）进入；只有「桌面长按接管」一个开关，标题旁直接显示「已接上 / 该复测了 / 未接上」，不再单独占一张体检卡。
+
 **桌面小部件**：4 个 1×1 方块（俯卧撑 / 蹲马步 / 引体向上 / 自定义），一个 4×2 大卡（7 天矩阵 + 项目切换）。方块点一下加一组，环朝总目标走。
 
 ## 截图
 
-| 今天 | 趋势 | 项目 |
-| --- | --- | --- |
-| ![今天](docs/screenshots/home.png) | ![趋势](docs/screenshots/trend.png) | ![项目](docs/screenshots/projects.png) |
+| 今天 | 趋势 | 项目 | 设置（隐藏页） |
+| --- | --- | --- | --- |
+| ![今天](docs/screenshots/home.png) | ![趋势](docs/screenshots/trend.png) | ![项目](docs/screenshots/projects.png) | ![设置](docs/screenshots/settings.png) |
 
-**桌面小部件**：4 个 1×1 方块（俯卧撑 / 蹲马步 / 引体向上 / 自定义）+ 2 张 4×2 大卡（身高卡、计数卡）。方块点一下加一组（弹出 `+12` 飘字），长按 **0.15 秒**减一组（弹出 `−12`）；大卡有 7 天条带，条带固定 **周二 → 周一**。
+**桌面小组件（真机实拍）**
+
+![桌面组件](docs/screenshots/widgets-real.jpg)
+
+桌面小部件是 4 个 1×1 方块（俯卧撑 / 蹲马步 / 引体向上 / 自定义）+ 2 张 4×2 大卡（身高卡、计数卡）。方块点一下加一组（弹出 `+12` 飘字），长按 **0.15 秒**减一组（弹出 `−12`）；大卡有 7 天条带，条带固定 **周二 → 周一**。单击的触感是 36ms 最大振幅，户外/口袋里也能感觉到，不会像长震动那样拖沓。
 
 ## 桌面长按接管与 Vector 模块
 
 App 自己就是 Xposed 模块，**长按减组靠它**——不需要再装第二个 APK。
+
+从 1.2.9 起，设置页不再单独放“桌面长按体检”卡片：状态直接跟在「桌面长按接管」标题后面，绿色「已接上」表示钩子已经在当前桌面进程里干活，黄色「该复测了」表示桌面重启过、还没收到新心跳，红色「未接上」表示作用域或模块没生效。下面仍保留一个总开关，关掉就能拿回 MIUI 原生长按。
 
 ### 启用
 
@@ -86,15 +94,16 @@ App 里那个开关是往桌面进程发一条广播，钩子收到就自动置�
 
 ### 误触修复：怎么区分「点方块」和「点方块上面的东西」
 
-旧版钩子挂在全局 `View.dispatchTouchEvent`，**只要坐标落在方块矩形内就吃掉事件**。结果很糟：文件夹展开后点里面的图标、从多任务切到别的 App，都会被当成点了方块，组数白涨。
+旧版钩子挂在全局 `View.dispatchTouchEvent`，**只要坐标落在方块附近就吃掉事件**。结果很糟：文件夹展开后点里面的图标、从多任务切到别的 App，都会被当成点了方块，组数白涨。
 
-现在改成三层判定，**只有真的点在方块上才接管**：
+现在改成“真实矩形 + 首点兜底”三层判定，**只有真的点在方块上才接管**：
 
 1. **遮挡判定**——从 `DecorView` 往下找 `Folder`、或类名含 `Recents`/`MultiTask`/`TaskView` 的可见全屏 View，命中就直接放行；再用反射 `WindowManagerGlobal.mViews` 兜住所有窗口根视图。
-2. **命中判定**——四个 1×1 方块的 `LauncherAppWidgetHostView` **不在 `DecorView` 子树里**（MIUI 把它们挂在 `DragContainerLayout` 的登记表上），所以坐标从 `hostViews` 登记表取。`getLocationOnScreen` 对这些 view 返回的 y 带一个固定容器偏移，实测真实中心是 `cy = loc[1] − height/2`、`cx = loc[0] + width/2`，再取**最近邻 + 210px 阈值**。
-3. **兜底**——三处 widget 层 hook（`OnLongClickAgent` / `LauncherAppWidgetHostView` / `LauncherWidgetView`）作为备用，不参与主路径。
+2. **真实矩形判定**——四个 1×1 方块的 `LauncherAppWidgetHostView` 不一定在 `DecorView` 子树里（MIUI 把它们挂在 `DragContainerLayout` 的登记表上），所以从 `hostViews` 登记表取每个 key 的宿主，用 `getLocationOnScreen` 得到真实左上角和宽高，手指必须落在这个矩形里（边缘放宽 4px）。不再用“最近邻 + 210px”的圆形兜底，避免伸到隔壁方块。
+3. **首点兜底**——桌面刚重启/组件刚刷新时 `hostViews` 登记表可能还没建好。这时沿当前 View 的父链最多 10 层找真正的 `AppWidgetHostView`，再用当前叶子/宿主矩形判断；同时直接给 `AppWidgetHostView.dispatchTouchEvent` 挂钩子，覆盖“第一下没人接”的窗口期。
+4. **抬手兜底**——同一个手势只认 `downTime`，不再要求“按下层 === 抬层层”。这样按下被某一层吃掉、抬手被另一层接走时，仍然会正常结算，不会出现“点了但没加组”。
 
-真机双向验证：第 6 页点方块 → 组数 +1；第 6 页打开文件夹 → 点「小鱼弹琴」→ 应用正常打开、四个方块数据一个不动；第 1 页（方块已离屏）点文件夹图标 → 不误触。
+真机双向验证：重启桌面后第一次点俯卧撑文字上半部 → 组数 +1；四个方块分别点文字/数字/圆环 → 各自只加自己的组；点卡片边缘留白 → 进 App 而不是加组；点文件夹里的图标 → 不误触。
 
 ### 已知限制：多任务界面里点方块会误加组
 
@@ -106,7 +115,8 @@ MIUI 13 的最近任务是 `RecentsAnimation`，**不产生新的 Activity**，�
 
 - Kotlin，原生 Android View + Canvas，**没有引入任何第三方 UI 框架**
 - 依赖只有 androidx 基础库（core-ktx / appcompat / material / constraintlayout / recyclerview）
-- 数据落本地 JSON（应用私有目录），不上传、不联网
+- 数据默认落本地 JSON（应用私有目录）；在 `DailyScale/sync.properties` 配了自家局域网后端后，按事件增量同步到树莓派，不经过公网
+- 同步后端：Python 标准库 + SQLite，单文件 `server/app.py`，Docker 镜像 `python:3.12-slim`
 - minSdk 26 / targetSdk 34
 
 UI 是按一份 HTML 原型 1:1 复刻的。原型屏幕逻辑宽 350px，真机逻辑宽 411dp，所以全局用 `Ui.S = 1.175` 做等比换算——尺寸、字号、间距一起放大，比例才不走样。这段逻辑在 `DailyScale/app/src/main/java/com/beike/daytally/util/Ui.kt`。
@@ -120,13 +130,20 @@ UI 是按一份 HTML 原型 1:1 复刻的。原型屏幕逻辑宽 350px，真机
 │   │   ├── MainActivity.kt            三页容器 + 底栏
 │   │   ├── Repo.kt                    本地 JSON 读写 + 种子数据
 │   │   ├── model/Metric.kt            项目数据模型
+│   │   ├── sync/                      事件队列 / HTTP 同步 / Wi‑Fi 回调
 │   │   ├── ui/HomeView.kt             今天页
 │   │   ├── ui/TrendView.kt            趋势页
 │   │   ├── ui/ChartView.kt            折线图（Canvas，按 320×200 viewBox 等比）
 │   │   ├── ui/ProjectsView.kt         项目页
+│   │   ├── ui/SettingsView.kt         隐藏设置页
 │   │   ├── util/Ui.kt                 等比换算 dp / sp / wdp
 │   │   └── widget/                    5 个桌面组件
 │   └── app/src/main/res/              布局、drawable、主题
+├── server/                            树莓派同步后端（Docker + SQLite）
+│   ├── app.py                         HTTP API + 事件合并 + SQLite
+│   ├── Dockerfile                      python:3.12-slim + HEALTHCHECK
+│   ├── docker-compose.yml             8787 端口、./data 持久化、自动重启
+│   └── README.md                      后端接口与部署细节
 ├── 每日刻度APP原型版本1.html           设计基准（当前 v11）
 ├── 每日刻度APP原型版本1修改备份/       v1～v10 迭代留档
 ├── 每日刻度APP原型版本2修改备份/       下一轮改版用
@@ -142,10 +159,17 @@ UI 是按一份 HTML 原型 1:1 复刻的。原型屏幕逻辑宽 350px，真机
 
 ```bash
 cd DailyScale
-./gradlew assembleRelease      # Windows: gradlew.bat assembleRelease
+
+# 公开包（默认）：不带任何同步地址/Token，适合发 Release
+./gradlew assembleRelease
+
+# 本地同步包：只有显式打开开关，才会读取 sync.properties
+./gradlew assembleRelease -PwithSync=true
 ```
 
 产物在 `app/build/outputs/apk/release/app-release.apk`。
+
+> 公开包默认**不读** `sync.properties`。这是硬开关，不是“文件为空就自动关闭”：构建脚本只有在 `-PwithSync=true` 时才会碰这个文件，防止以后误把家里的地址和 Token 打进公开包。Windows 用 `gradlew.bat`，参数一样。
 
 ## 关于签名
 
@@ -159,6 +183,154 @@ keyPassword=...
 ```
 
 没有这个文件时，`release` 会自动退回 debug 签名，所以 clone 下来照样能构建、能装。
+
+## 局域网同步后端（树莓派 / Docker）
+
+> 这一段是给“想把数据放在自己家里”的人看的。不配也能用，App 仍然只存本地；配了之后，手机只在 Wi‑Fi 下和自家树莓派同步，数据不出局域网。
+
+### 它怎么合并（为什么两台手机同时加组不会丢）
+
+同步不是“拿整份数据覆盖”，而是记“事件”：
+
+- 每次加一组 / 减一组，客户端记一条 `add` / `remove` 事件，带唯一 id、项目、日期、发生时间；服务端按事件 id 去重后**求和**。
+- A 手机加 3 组、B 手机加 1 组，最终就是 4 组。谁先同步、谁后同步都不会把对方的增量覆盖掉。
+- 身高、项目配置按发生时间取最新；清空记一个截止时间，早于它的旧事件不再计入。
+- 第一次连接时客户端会带整库快照。服务端**只有空库**才拿它当基线；已有数据只拉取，不重复播种。第二台旧手机不会把自己的旧历史再加一遍。
+- 两台手机同时改、时间戳撞车也没关系：服务端按事件 id 去重、按发生时间合并，最后把权威快照回写给两台手机。
+
+### 什么时候会同步
+
+1. 第一次打开 App（`MainActivity.onStart`）
+2. Wi‑Fi 从断到连（`SyncNetwork` 监听默认网络，只认 `TRANSPORT_WIFI`）
+3. 每次本地加 / 减 / 改配置后，1.8 秒合并成一次请求
+
+在外面用流量加组不会发请求，事件会先存在手机本地；回家连上 Wi‑Fi 后自动补传。服务端更新后，手机下次打开 App 或 Wi‑Fi 重连时会拉取最新快照。
+
+### 树莓派准备
+
+- Ubuntu / Raspberry Pi OS 均可，装好 Docker 与 Compose 插件
+- 给树莓派在路由器里固定一个局域网 IP（例如 `192.168.1.50`），别让它每次重启换地址
+- 确认 `8787` 端口没被占用
+
+```bash
+docker --version
+docker compose version
+ss -lntp | grep 8787
+```
+
+### 部署
+
+在仓库根目录执行（把 `你的用户名` 和 `树莓派IP` 换成实际值）：
+
+```bash
+# 1. 树莓派上建目录
+ssh 你的用户名@树莓派IP
+sudo mkdir -p /opt/daytally-sync/data
+sudo chown -R $USER:$USER /opt/daytally-sync
+exit
+
+# 2. 从电脑上传后端源码
+scp -r server/* 你的用户名@树莓派IP:/opt/daytally-sync/
+
+# 3. 登录树莓派，生成 Token
+ssh 你的用户名@树莓派IP
+cd /opt/daytally-sync
+cp .env.example .env
+openssl rand -hex 16
+nano .env
+```
+
+`.env` 只需要两行（Token 填上一步生成的那串）：
+
+```properties
+DAYTALLY_TOKEN=粘贴32位十六进制Token
+TZ=Asia/Shanghai
+```
+
+然后启动：
+
+```bash
+docker compose up -d --build
+docker compose ps
+curl http://127.0.0.1:8787/health
+```
+
+健康接口正常时返回：
+
+```json
+{"ok":true,"service":"daytally-sync","version":"1.2.9","seeded":false}
+```
+
+`docker compose ps` 里 `daytally-sync` 应该是 `running (healthy)`。`docker-compose.yml` 已经写了 `restart: unless-stopped`，Docker 服务也 `systemctl enable docker` 后，树莓派断电重启会自动把后端拉起来；数据落在宿主机的 `./data/daytally.db`，重建容器不会丢。
+
+### App 端配置
+
+在 `DailyScale/` 下新建 `sync.properties`（已列入 `.gitignore`，不会进仓库）：
+
+```properties
+baseUrl=http://树莓派局域网IP:8787
+token=和 .env 里同一个Token
+```
+
+然后显式打开同步开关构建：
+
+```bash
+cd DailyScale
+./gradlew assembleRelease -PwithSync=true   # Windows: gradlew.bat assembleRelease -PwithSync=true
+```
+
+构建时才会把 `baseUrl` / `token` 写进 `BuildConfig`。换树莓派 IP、换 Token 都要改这里并重新打包；只改服务端不会自动同步到已安装的 APK。
+
+> **公开 Release 的 APK 默认不带 Token**：默认构建根本不读 `sync.properties`，避免把自家局域网的地址和 Token 公开到 GitHub。要在自己手机上开同步，按上面加 `-PwithSync=true` 重新构建；这个带 Token 的包只留本地，不要上传。`sync.properties` 和 `server/.env` 都不要提交。
+
+### 维护
+
+```bash
+cd /opt/daytally-sync
+
+# 看日志（Ctrl+C 退出）
+docker compose logs -f --tail=100
+
+# 重启
+docker compose restart
+
+# 改了 app.py / compose 后重建
+docker compose up -d --build
+
+# 停止 / 启动
+docker compose stop
+docker compose start
+```
+
+备份 SQLite（先停再复制，最稳）：
+
+```bash
+cd /opt/daytally-sync
+docker compose stop
+cp data/daytally.db data/daytally.db.$(date +%F).bak
+docker compose start
+```
+
+恢复：
+
+```bash
+cd /opt/daytally-sync
+docker compose stop
+cp data/daytally.db.2026-11-21.bak data/daytally.db
+docker compose start
+```
+
+### 常见问题
+
+| 现象 | 先查什么 |
+|---|---|
+| 手机同步没反应 | 手机和树莓派是否同一个 Wi‑Fi；App 是否只在 Wi‑Fi 下同步；`baseUrl` 的 IP 是否写对 |
+| `curl` 连不上 | `docker compose ps` 是否 healthy；`ss -lntp \| grep 8787` 是否有进程；树莓派防火墙是否放行 8787 |
+| 返回 401 | App 的 `token` 和 `server/.env` 的 `DAYTALLY_TOKEN` 不一致 |
+| 端口被占用 | 改 `docker-compose.yml` 的 `8787:8787` 左侧端口，同时改 App 的 `baseUrl` |
+| 数据想重来 | 停容器，把 `data/daytally.db` 改名留档，再启动；不要直接删正在用的库 |
+
+> 这是**局域网服务**，不要把 8787 映射到公网，也不要把 `.env` / `sync.properties` 发出去。Token 是唯一门槛，泄露了就在树莓派上换一串，手机端重新打包。
 
 ## 原型与版本
 

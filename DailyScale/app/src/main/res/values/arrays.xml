@@ -1,0 +1,7 @@
+<resources>
+    <!-- LSPosed / Vector 的推荐作用域：系统桌面。装了的才会被框架列出来。 -->
+    <string-array name="xposed_scope">
+        <item>com.miui.home</item>
+        <item>com.android.launcher3</item>
+    </string-array>
+</resources>

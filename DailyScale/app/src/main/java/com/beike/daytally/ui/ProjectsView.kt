@@ -91,7 +91,11 @@ private fun View.installHoldToSettings(cb: ProjectsCallback) = apply {
 }
 
 
-class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: ProjectsCallback) : FrameLayout(ctx) {
+class ProjectsView(
+    ctx: Context, val repo: Repo, val sound: Sound, val cb: ProjectsCallback,
+    /** 弹窗宿主用 App 最顶层的 overlay，不能挂在本页里，否则底栏/页面会压到弹窗上面 */
+    private val overlay: FrameLayout
+) : FrameLayout(ctx) {
 
     companion object {
         private const val PREFS_CFG = "ds_cfg"
@@ -118,7 +122,6 @@ class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: Proje
 
     private val handler = Handler(Looper.getMainLooper())
     private val content: LinearLayout
-    private val overlay: FrameLayout
     private val nf = DecimalFormat("#,###")
     private var lastTap = 0L
     private var cardClickTimer: Runnable? = null
@@ -153,13 +156,8 @@ class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: Proje
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT
             )
         }
-        overlay = FrameLayout(context).apply {
-            visibility = GONE
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT
-            )
-        }
-        addView(content); addView(overlay)
+        overlay.visibility = GONE
+        addView(content)
         render()
     }
 
@@ -397,6 +395,9 @@ class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: Proje
         overlay.addView(mask)
         overlay.addView(box)
         overlay.visibility = VISIBLE
+        /* 编辑项目/纵轴上限这些输入弹窗，键盘一高就会盖住下半截。
+           这里交给 ImePad：键盘多高就上移多少，始终停在键盘上方可用区的中间。 */
+        ImePad.bind(overlay, box, dp(16f))
     }
 
     private fun closeOverlay(onLeave: () -> Unit) {
@@ -494,6 +495,7 @@ class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: Proje
         }
         val commit = {
             m.maxGroups = et.text.toString().trim().toInt()
+            repo.noteConfigChanged(m)
             repo.save(); render()          // 静默保存：边打字边存，不震不响
         }
         debounceSave(et, 700, valid) { commit() }
@@ -554,6 +556,7 @@ class ProjectsView(ctx: Context, val repo: Repo, val sound: Sound, val cb: Proje
             m.name = nameEt.text.toString().trim()
             m.per = perEt.text.toString().trim().toInt()
             m.unit = unit
+            repo.noteConfigChanged(m)
             repo.save(); render()          // 静默保存
         }
         debounceSave(nameEt, 700, valid) { commit() }
