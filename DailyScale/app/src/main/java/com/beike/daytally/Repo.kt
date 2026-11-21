@@ -90,7 +90,7 @@ class Repo private constructor(private val ctx: Context) {
         if (!file.exists()) {
             /* 配了同步后端时，新装 App 不再灌 30 天演示数据：先空着，首次同步从服务端拉。
                没配后端（纯本地版）保留原来的演示种子，方便看完整曲线。 */
-            if (SyncConfig.enabled) {
+            if (SyncConfig.enabled(ctx)) {
                 defs.forEach { metrics[it.key] = it }
                 save()
                 return

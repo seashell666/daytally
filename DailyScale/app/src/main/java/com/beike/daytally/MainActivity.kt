@@ -98,7 +98,7 @@ class MainActivity : AppCompatActivity() {
             override fun gotoHome() = switchView("home")
             override fun gotoSettings() = openSettings()
         }, overlay)
-        settings = SettingsView(this, sound, object : SettingsCallback {
+        settings = SettingsView(this, sound, overlay, object : SettingsCallback {
             override fun leaveSettings() = switchView("projects")
         })
         content.addView(home)
@@ -127,7 +127,11 @@ class MainActivity : AppCompatActivity() {
             }
         }
         ContextCompat.registerReceiver(
-            this, syncReceiver, IntentFilter(SyncManager.ACTION_SYNCED),
+            this, syncReceiver,
+            IntentFilter().apply {
+                addAction(SyncManager.ACTION_SYNCED)
+                addAction(SyncManager.ACTION_SYNC_STATE)
+            },
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
 

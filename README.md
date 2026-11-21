@@ -12,9 +12,9 @@
 
 ## 当前版本
 
-**1.2.10**（2026-11-21）——修「桌面方块已经变红/变金，App 今天页还停在旧颜色和旧数字」：桌面加/减组后，`WidgetProvider` 会发数据变更广播；App 在前台就当场重绘当前页，从后台回来时 `onStart` 也先重绘再同步，不用再切「项目」再切回来。真机实测自定义方块 57 组（白）→ 点回 58 组（金），回 App 立刻显示金色 2726；长按减回 57 组，回 App 立刻显示白色 2679。上一版 1.2.9 的桌面震动、首点修复、设置页精简和局域网同步见 [CHANGELOG.md](CHANGELOG.md)。
+**1.2.11**（2026-11-21）——设置页在「桌面长按接管」下面多了一张「同步服务」卡：公开包点开填自己的后端 IP、端口和访问令牌，保存后立刻连自己家里部署的服务，不再需要为了同步单独打带 Token 的包。卡片的紫底、内边距、标题字号和右侧箭头沿用上面那张卡；弹窗复用项目弹窗的居中位置、键盘避让、打开音效和保存/错误反馈。旧手机真机验收到「未设置」和空弹窗，新手机填 `IP + 端口 + 32 位令牌` 后显示「已连接」，加一组再减一组，服务端跟着 33→34→33。1.2.10 的桌面颜色刷新修复见 [CHANGELOG.md](CHANGELOG.md)。
 
-安装包在 [Releases](https://github.com/seashell666/daytally/releases/tag/v1.2.10)，装完记得重启一次手机让 LSPosed 重新加载桌面钩子。
+安装包在 [Releases](https://github.com/seashell666/daytally/releases/tag/v1.2.11)，装完记得重启一次手机让 LSPosed 重新加载桌面钩子。
 
 ---
 
@@ -38,7 +38,7 @@
 
 **项目页**：每个项目的每组数量、累计、目标、纵轴范围，点卡片可改设置。
 
-**隐藏设置页**：项目页长按「项目」二字 0.7 秒（底栏「项目」Tab 长按 0.7 秒也行）进入；只有「桌面长按接管」一个开关，标题旁直接显示「已接上 / 该复测了 / 未接上」，不再单独占一张体检卡。
+**隐藏设置页**：项目页长按「项目」二字 0.7 秒（底栏「项目」Tab 长按 0.7 秒也行）进入；第一张是「桌面长按接管」开关，标题旁直接显示「已接上 / 该复测了 / 未接上」；下面是「同步服务」卡，公开包点开填自己的后端 IP、端口和访问令牌，保存后立刻连接。两张卡同款紫渐变、同尺寸。
 
 **桌面小部件**：4 个 1×1 方块（俯卧撑 / 蹲马步 / 引体向上 / 自定义），一个 4×2 大卡（7 天矩阵 + 项目切换）。方块点一下加一组，环朝总目标走。
 
@@ -115,7 +115,7 @@ MIUI 13 的最近任务是 `RecentsAnimation`，**不产生新的 Activity**，�
 
 - Kotlin，原生 Android View + Canvas，**没有引入任何第三方 UI 框架**
 - 依赖只有 androidx 基础库（core-ktx / appcompat / material / constraintlayout / recyclerview）
-- 数据默认落本地 JSON（应用私有目录）；在 `DailyScale/sync.properties` 配了自家局域网后端后，按事件增量同步到树莓派，不经过公网
+- 数据默认落本地 JSON（应用私有目录）；在设置页「同步服务」里填自家后端地址和 Token 后，按事件增量同步到树莓派，不经过公网；地址和 Token 存在本机 `SharedPreferences`，不进 APK、不进仓库
 - 同步后端：Python 标准库 + SQLite，单文件 `server/app.py`，Docker 镜像 `python:3.12-slim`
 - minSdk 26 / targetSdk 34
 
@@ -159,17 +159,10 @@ UI 是按一份 HTML 原型 1:1 复刻的。原型屏幕逻辑宽 350px，真机
 
 ```bash
 cd DailyScale
-
-# 公开包（默认）：不带任何同步地址/Token，适合发 Release
 ./gradlew assembleRelease
-
-# 本地同步包：只有显式打开开关，才会读取 sync.properties
-./gradlew assembleRelease -PwithSync=true
 ```
 
-产物在 `app/build/outputs/apk/release/app-release.apk`。
-
-> 公开包默认**不读** `sync.properties`。这是硬开关，不是“文件为空就自动关闭”：构建脚本只有在 `-PwithSync=true` 时才会碰这个文件，防止以后误把家里的地址和 Token 打进公开包。Windows 用 `gradlew.bat`，参数一样。
+产物在 `app/build/outputs/apk/release/app-release.apk`。公开包就是唯一构建产物，不读取任何本地服务器地址或 Token；同步信息全部由用户在设置页里运行时填写。
 
 ## 关于签名
 
@@ -265,23 +258,18 @@ curl http://127.0.0.1:8787/health
 
 ### App 端配置
 
-在 `DailyScale/` 下新建 `sync.properties`（已列入 `.gitignore`，不会进仓库）：
+公开包里**没有**任何服务器地址或 Token。装好后：
 
-```properties
-baseUrl=http://树莓派局域网IP:8787
-token=和 .env 里同一个Token
-```
+1. 进入隐藏设置页（项目页长按「项目」二字 0.7 秒）
+2. 点「桌面长按接管」下面那张「同步服务」卡
+3. 填树莓派的局域网 IP、`8787` 端口和 `.env` 里的同一个 Token
+4. 点「保存并连接」
 
-然后显式打开同步开关构建：
+保存后卡上会显示 `IP:端口 · 点一下修改`，状态从「未设置」变成「待连接 / 已连接 / 连不上」。换 IP、换 Token 都在这张卡里改，**不用重新打包**；换服务器时会清掉旧的同步游标，避免把旧服务器的响应当成新服务器的数据。
 
-```bash
-cd DailyScale
-./gradlew assembleRelease -PwithSync=true   # Windows: gradlew.bat assembleRelease -PwithSync=true
-```
+> 公开 Release 的 APK 本身不带 Token，适合直接发 GitHub；每个人填自己的地址和 Token。`server/.env` 不要提交，`sync.properties` 这种本地构建配置也已经不需要了。
 
-构建时才会把 `baseUrl` / `token` 写进 `BuildConfig`。换树莓派 IP、换 Token 都要改这里并重新打包；只改服务端不会自动同步到已安装的 APK。
-
-> **公开 Release 的 APK 默认不带 Token**：默认构建根本不读 `sync.properties`，避免把自家局域网的地址和 Token 公开到 GitHub。要在自己手机上开同步，按上面加 `-PwithSync=true` 重新构建；这个带 Token 的包只留本地，不要上传。`sync.properties` 和 `server/.env` 都不要提交。
+<img src="docs/screenshots/sync-dialog.png" width="360" alt="同步服务弹窗" />
 
 ### 维护
 
@@ -324,13 +312,13 @@ docker compose start
 
 | 现象 | 先查什么 |
 |---|---|
-| 手机同步没反应 | 手机和树莓派是否同一个 Wi‑Fi；App 是否只在 Wi‑Fi 下同步；`baseUrl` 的 IP 是否写对 |
+| 手机同步没反应 | 手机和树莓派是否同一个 Wi‑Fi；App 是否只在 Wi‑Fi 下同步；设置页「同步服务」卡里的 IP / 端口有没有填对，状态是不是「连不上」 |
 | `curl` 连不上 | `docker compose ps` 是否 healthy；`ss -lntp \| grep 8787` 是否有进程；树莓派防火墙是否放行 8787 |
 | 返回 401 | App 的 `token` 和 `server/.env` 的 `DAYTALLY_TOKEN` 不一致 |
 | 端口被占用 | 改 `docker-compose.yml` 的 `8787:8787` 左侧端口，同时改 App 的 `baseUrl` |
 | 数据想重来 | 停容器，把 `data/daytally.db` 改名留档，再启动；不要直接删正在用的库 |
 
-> 这是**局域网服务**，不要把 8787 映射到公网，也不要把 `.env` / `sync.properties` 发出去。Token 是唯一门槛，泄露了就在树莓派上换一串，手机端重新打包。
+> 这是**局域网服务**，不要把 8787 映射到公网，也不要把 `.env` 发出去。Token 是唯一门槛，泄露了就在树莓派上换一串，手机端在「同步服务」卡里重新填一次即可，不用重打包。
 
 ## 原型与版本
 

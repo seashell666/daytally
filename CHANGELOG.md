@@ -1,5 +1,17 @@
 # 更新日志
 
+## v1.2.11 — 2026-11-21
+
+**同步地址从“打包时写死”改成“装好后自己填”，公开包也能连自己家里的后端。**
+
+- **设置页新增「同步服务」卡**：位置在「桌面长按接管」下面；紫渐变 `bg_week`、内边距 `16/15/12/15`、标题 `15sp` 加粗、右侧箭头，和上面那张卡同款同尺寸。状态分「未设置（红）/ 待连接（金）/ 已连接（绿）/ 连不上（红）」，副标题显示当前 `host:port` 或「点一下填 IP、端口和访问令牌」
+- **弹窗复用项目弹窗**：`bg_sheet`、28dp 外边距、`Gravity.CENTER`、`ImePad` 键盘避让；字段为 IP / 主机、端口、访问令牌（密码态）；打开走 `Sound.sheetOpen()`，保存成功 `Sound.save()`，校验失败 `Sound.error()`；点遮罩关闭
+- **运行时配置落 `ds_sync`**：`SyncConfig` 从 `BuildConfig` 改为 `SharedPreferences` 的 `base_url` / `token`，公开包不再需要编译时注入；`SyncManager` 每次请求读当前配置，换服务器时丢弃旧配置返回的响应，避免旧快照污染新服务器
+- **换服务器清游标**：`SyncStore.resetForServerChange()` 重置 `initialized` / `seq` / 上次结果，新服务器重新走“空库才播种”的判断；`MainActivity` 同时监听 `ACTION_SYNCED` 和 `ACTION_SYNC_STATE`，失败也会刷新设置卡状态
+- **公开包唯一**：`build.gradle` 删除 `withSync` / `sync.properties` / `SYNC_BASE_URL` / `SYNC_TOKEN` 整套构建分支；`versionCode 14` / `versionName "1.2.11"`。以后从 GitHub Release 下载的就是能自己填地址的公开包，不再有“本地同步版”
+- **真机实测**：旧手机（1080×2400）设置页出现「同步服务」卡，状态「未设置」，空弹窗居中且在键盘上方；新手机（1440×3063）填 `192.168.0.27` / `8787` / 32 位 Token，保存后显示「已连接」，`ds_sync.xml` 写入 `base_url` 和 `initialized=true`；自定义加一组，服务端与本地同步到 34，长按减回 33，两端一致
+- **文档**：README 当前版本、构建、App 端配置、常见问题改到运行时填写；删除 `-PwithSync=true` 和“带 Token 的包只留本地”的旧说明
+
 ## v1.2.10 — 2026-11-21
 
 **桌面方块的颜色变了，App 里的今天页也立刻跟着变，不用再切页面。**

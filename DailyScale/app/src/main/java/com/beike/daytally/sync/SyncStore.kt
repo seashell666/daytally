@@ -21,9 +21,43 @@ object SyncStore {
     private const val K_SEQ = "seq"
     private const val K_INIT = "initialized"
     private const val K_LAST = "last_sync"
+    private const val K_OK = "last_ok"
+    private const val K_ERR = "last_error"
     private const val FILE = "sync_events.json"
 
     private fun prefs(c: Context) = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
+    data class LastResult(val ok: Boolean?, val error: String?)
+
+    fun lastResult(c: Context): LastResult {
+        val p = prefs(c)
+        val ok = if (p.contains(K_OK)) p.getBoolean(K_OK, false) else {
+            /* 兼容 1.2.10 只有“上次成功时间”的旧记录 */
+            if (p.getLong(K_LAST, 0L) > 0L) true else null
+        }
+        return LastResult(ok, p.getString(K_ERR, null))
+    }
+
+    fun setLastResult(c: Context, ok: Boolean, error: String?) {
+        prefs(c).edit()
+            .putBoolean(K_OK, ok)
+            .putString(K_ERR, error?.takeIf { it.isNotBlank() })
+            .apply()
+    }
+
+    fun clearLastResult(c: Context) {
+        prefs(c).edit().remove(K_OK).remove(K_ERR).remove(K_LAST).apply()
+    }
+
+    /** 换了一个服务端：上次同步时间和结果属于旧地址，不能拿来显示“已连接”。 */
+    fun resetForServerChange(c: Context) {
+        prefs(c).edit()
+            .putBoolean(K_INIT, false)
+            .remove(K_LAST)
+            .remove(K_OK)
+            .remove(K_ERR)
+            .apply()
+    }
 
     fun clientId(c: Context): String {
         val p = prefs(c)
@@ -47,7 +81,7 @@ object SyncStore {
     }
 
     fun recordCounter(c: Context, metric: String, day: String, delta: Int) {
-        if (!SyncConfig.enabled) return
+        if (!SyncConfig.enabled(c)) return
         val e = JSONObject()
             .put("id", UUID.randomUUID().toString())
             .put("seq", nextSeq(c))
@@ -61,7 +95,7 @@ object SyncStore {
     }
 
     fun recordSet(c: Context, metric: String, day: String, value: Double) {
-        if (!SyncConfig.enabled) return
+        if (!SyncConfig.enabled(c)) return
         val e = JSONObject()
             .put("id", UUID.randomUUID().toString())
             .put("seq", nextSeq(c))
@@ -75,7 +109,7 @@ object SyncStore {
     }
 
     fun recordConfig(c: Context, m: Metric) {
-        if (!SyncConfig.enabled) return
+        if (!SyncConfig.enabled(c)) return
         val cfg = JSONObject()
             .put("name", m.name)
             .put("unit", m.unit)
@@ -94,7 +128,7 @@ object SyncStore {
     }
 
     fun recordReset(c: Context, metric: String) {
-        if (!SyncConfig.enabled) return
+        if (!SyncConfig.enabled(c)) return
         val e = JSONObject()
             .put("id", UUID.randomUUID().toString())
             .put("seq", nextSeq(c))
@@ -108,7 +142,7 @@ object SyncStore {
     fun pending(c: Context): JSONArray = readQueue(c)
 
     /** 生成整库快照：只用于“服务端还是空库”的第一次播种，平时不参与覆盖 */
-    fun snapshot(c: Context, repo: com.beike.daytally.Repo): JSONObject {
+    fun snapshot(repo: com.beike.daytally.Repo): JSONObject {
         val metrics = JSONObject()
         repo.order.forEach { key ->
             val m = repo.metric(key)
