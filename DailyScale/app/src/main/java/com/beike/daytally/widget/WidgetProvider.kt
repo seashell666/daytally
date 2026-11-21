@@ -17,6 +17,7 @@ import com.beike.daytally.MainActivity
 import com.beike.daytally.R
 import com.beike.daytally.Repo
 import com.beike.daytally.Sound
+import com.beike.daytally.sync.SyncManager
 import com.beike.daytally.util.C
 import com.beike.daytally.util.Ui
 
@@ -112,6 +113,7 @@ open class WidgetProvider(private val key: String) : AppWidgetProvider() {
         super.onReceive(context, intent)
         when (intent.action) {
             ACTION_ADD -> {
+                val pending = goAsync()
                 val k = intent.getStringExtra(EXTRA_KEY) ?: key
                 val repo = Repo.get(context).also { it.ensureToday() }
                 repo.metric(k).let { repo.addGroup(it) }
@@ -124,8 +126,12 @@ open class WidgetProvider(private val key: String) : AppWidgetProvider() {
                 WeekWidget.setCurrentKey(context, k)
                 refreshAll(context)
                 WidgetRefresh.notifyApp(context)
+                /* recordCounter 已触发一次同步；这里再挂一个 goAsync 回调，
+                   保证广播进程活到网络回包，而不是点完就被系统回收。 */
+                SyncManager.request(context, "widget_add", pending::finish, urgent = true)
             }
             ACTION_REMOVE -> {
+                val pending = goAsync()
                 /* 来自 Vector 模块：桌面上长按方块 = 退一组 */
                 val k = intent.getStringExtra(EXTRA_KEY) ?: key
                 val repo = Repo.get(context).also { it.ensureToday() }
@@ -136,6 +142,7 @@ open class WidgetProvider(private val key: String) : AppWidgetProvider() {
                 WeekWidget.setCurrentKey(context, k)
                 refreshAll(context)
                 WidgetRefresh.notifyApp(context)
+                SyncManager.request(context, "widget_remove", pending::finish, urgent = true)
             }
         }
     }

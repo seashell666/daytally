@@ -32,6 +32,18 @@ MAX_BODY = 2 * 1024 * 1024
 METRICS = ("height", "push", "horse", "pullup", "custom")
 DAY_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
+# 所有已连接的手机共享一个版本号：任何一次同步写入成功后 +1，
+# 正在长连接（SSE）上的其它手机立刻收到 change，马上去拉最新快照。
+STATE_CONDITION = threading.Condition()
+STATE_VERSION = 0
+
+
+def notify_change() -> None:
+    global STATE_VERSION
+    with STATE_CONDITION:
+        STATE_VERSION += 1
+        STATE_CONDITION.notify_all()
+
 DEFAULTS = {
     "height": {"name": "身高", "unit": "厘米", "per": 0, "goal": 0, "maxGroups": 0},
     "push": {"name": "俯卧撑", "unit": "个", "per": 12, "goal": 10000, "maxGroups": 32},
@@ -350,7 +362,7 @@ def build_snapshot(conn: sqlite3.Connection) -> dict:
     rev_row = conn.execute("SELECT COALESCE(MAX(received_at), 0) AS r FROM events").fetchone()
     return {
         "ok": True,
-        "version": "1.2.9",
+        "version": "1.2.12",
         "revision": int(rev_row["r"] or 0),
         "serverTime": now_ms(),
         "seeded": is_seeded(conn),
@@ -393,6 +405,9 @@ def process_sync(payload: dict) -> dict:
         snap = build_snapshot(conn)
         snap["seeded"] = bool(seeded_now)
         snap["acked"] = acked
+        # 只有真的有新事件（或第一次播种）才唤醒别的手机；重复上报不会造成风暴
+        if seeded_now or events:
+            notify_change()
         return snap
     except Exception:
         conn.rollback()
@@ -402,7 +417,7 @@ def process_sync(payload: dict) -> dict:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "DayTallySync/1.2.9"
+    server_version = "DayTallySync/1.2.12"
 
     def _auth(self) -> bool:
         if not TOKEN:
@@ -443,8 +458,42 @@ class Handler(BaseHTTPRequestHandler):
                     seeded = is_seeded(conn)
                 finally:
                     conn.close()
-                self._json(200, {"ok": True, "service": "daytally-sync", "version": "1.2.9", "seeded": seeded})
+                self._json(200, {"ok": True, "service": "daytally-sync", "version": "1.2.12", "seeded": seeded})
                 return
+            if self.path == "/api/v1/stream":
+                if not self._auth():
+                    self._json(401, {"ok": False, "error": "unauthorized"})
+                    return
+                # SSE：手机端保持一条极轻的长连接；有写入就推 change，平时只发心跳。
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+                self.send_header("Cache-Control", "no-cache")
+                self.send_header("Connection", "keep-alive")
+                self.end_headers()
+                self.wfile.write(b"retry: 3000\n\n")
+                self.wfile.flush()
+                last = -1
+                try:
+                    while True:
+                        with STATE_CONDITION:
+                            version = STATE_VERSION
+                            if version == last:
+                                STATE_CONDITION.wait(timeout=25)
+                                version = STATE_VERSION
+                        if version != last:
+                            last = version
+                            data = json.dumps(
+                                {"version": version, "serverTime": now_ms()},
+                                ensure_ascii=False, separators=(",", ":"),
+                            )
+                            self.wfile.write(
+                                ("event: change\ndata: " + data + "\n\n").encode("utf-8")
+                            )
+                        else:
+                            self.wfile.write(b": ping\n\n")
+                        self.wfile.flush()
+                except (BrokenPipeError, ConnectionResetError, OSError):
+                    return
             if self.path == "/api/v1/snapshot":
                 if not self._auth():
                     self._json(401, {"ok": False, "error": "unauthorized"})

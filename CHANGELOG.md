@@ -1,5 +1,24 @@
 # 更新日志
 
+## v1.2.12 — 2026-11-21
+
+**桌面点一下，另一台手机的组件约 1 秒内跟着变；不用打开 App，也不用等 Wi‑Fi 重连。**
+
+- **先定位旧链路缺口**：1.2.11 及以前，`MainActivity.onStart` 和 Wi‑Fi 重连才会拉快照；`SyncManager` 成功回写后没有刷新桌面组件；`WidgetProvider` 的点击广播没有 `goAsync()`，HTTP 没回包时进程可能已被回收。所以 A 手机加到 34，B 手机仍停在 33，不是数据没上传，而是 B 没有“数据变了”的通道
+- **服务端新增 SSE**：`GET /api/v1/stream`，Bearer 鉴权，`text/event-stream`；写入成功后 `notify_change()` 递增 `STATE_VERSION`，向所有长连接广播 `event: change`；空闲每 25 秒发 `: ping`；健康检查和 `server_version` 升到 `1.2.12`
+- **App 新增 `SyncPushService`**：`dataSync` 前台服务，低重要性常驻通知「日刻 · 实时同步」；SSE 收到 `change` 就调用一次 `SyncManager.request("push")`；断线按 1.2s → 30s 指数退避重连；`START_STICKY`；换服务器/Token 时 `restart()` 先断开旧连接
+- **桌面点击不再依赖 App 主界面**：`WidgetProvider` 的 `ACTION_ADD` / `ACTION_REMOVE` 先 `goAsync()`，把 `PendingResult` 挂到 `SyncManager.request(..., onDone)` 上；加/减走 `urgent=true`，不被平时 1.8 秒合并窗口拖住。App 没打开、进程没在后台，点击仍会把变化发到服务端
+- **B 手机只拉一次并刷新组件**：`SyncManager` 应用服务端快照后新增 `WidgetRefresh.refreshAll(ctx)`；即使 App 界面没打开，后台拉取成功也会重绘 4 个方块、2 张大卡
+- **开机/覆盖安装自启**：新增 `BootReceiver` 监听 `BOOT_COMPLETED` 与 `MY_PACKAGE_REPLACED`；Manifest 增加 `RECEIVE_BOOT_COMPLETED`、`FOREGROUND_SERVICE`、`FOREGROUND_SERVICE_DATA_SYNC`、`POST_NOTIFICATIONS`；Android 13+ 已配置同步时请求通知权限
+- **真机实测（两台小米 11 / MIUI 14，同一 Wi‑Fi，树莓派 `192.168.0.27:8787`）**：
+  - 旧手机桌面点「自定义」34 → 35，服务端 `revision` 立即变化；新手机没打开 App，组件在 1.2 秒内从 34 变 35
+  - 旧手机 App 进程不在时点方块 34 → 35，`pidof` 确认广播拉起进程，HTTP 完成后组件和服务端都到 35
+  - 新手机重启后不打开 App，开机广播拉起 `SyncPushService`，`isForeground=true`；旧手机再点 36 → 37，新手机组件在 1.2 秒内跟着变
+  - 旧手机重启后同样由 `BOOT_COMPLETED` 拉起服务并建立 SSE 连接
+- **机型限制**：MIUI 覆盖安装时可能拒绝后台启动前台服务（`Service.startForeground() not allowed due to bg restriction`）；打开一次 App 后恢复。长时间待机仍可能被杀，需要在手机管家允许自启动、省电无限制。README 已如实写清，不宣称零耗电
+- **文档**：README 重排为「UI + 一句话价值 → 细分价值 → 使用方法/隐藏交互 → 实时同步方式 → 进阶模块 → 构建/后端 → 项目结构/原型」；设置页截图换成 1.2.12
+- **构建**：`versionCode 15` / `versionName "1.2.12"`
+
 ## v1.2.11 — 2026-11-21
 
 **同步地址从“打包时写死”改成“装好后自己填”，公开包也能连自己家里的后端。**

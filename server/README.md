@@ -11,6 +11,8 @@
 
 如果拿最后同步的总数覆盖，就会丢掉其中一台的增量。这里把每次加/减都记成一条带时间戳和唯一 id 的动作，服务端求和；所以最终是 4 组，不是 3 组或 1 组。
 
+1.2.12 起，服务端还负责**实时通知**：任何一次写入成功后，通过 SSE 把 `change` 推给所有在线手机；另一台手机收到就拉一次快照并刷新桌面组件。
+
 ## 目录
 
 ```
@@ -37,6 +39,14 @@ curl http://127.0.0.1:8787/health
 - `GET /health`：健康检查，不需要 Token。
 - `GET /api/v1/snapshot`：读取当前权威快照，需要 Bearer Token。
 - `POST /api/v1/sync`：客户端推事件 + 拉快照，需要 Bearer Token。
+- `GET /api/v1/stream`：SSE 长连接，需要 Bearer Token。连上先收 `event: change`；服务端每次写入成功后推新的 `event: change`；25 秒无变化发一行 `: ping` 心跳。
+
+验证长连接（另开一个终端，改完数据看它是否立刻打印 `event: change`）：
+
+```bash
+curl -N -H "Authorization: Bearer $TOKEN" \
+     http://127.0.0.1:8787/api/v1/stream
+```
 
 同步请求示例：
 
@@ -44,7 +54,7 @@ curl http://127.0.0.1:8787/health
 {
   "clientId": "phone-a-uuid",
   "deviceName": "Xiaomi 11",
-  "appVersion": "1.2.9",
+  "appVersion": "1.2.12",
   "seed": true,
   "snapshot": {
     "metrics": {
@@ -77,6 +87,7 @@ curl http://127.0.0.1:8787/health
 {
   "ok": true,
   "seeded": false,
+  "version": "1.2.12",
   "revision": 123,
   "serverTime": 1763700000000,
   "acked": ["event-uuid"],

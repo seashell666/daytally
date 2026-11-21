@@ -39,21 +39,39 @@ object SyncManager {
     private var running = false
     private var scheduled = false
     private var pendingAgain = false
+    private var pendingUrgent = false
     private var lastStart = 0L
+    private val waiters = ArrayList<() -> Unit>()
 
-    fun request(c: Context, reason: String) {
+    /**
+     * 请求一次同步。onDone 只用于桌面组件 receiver 的 goAsync 生命周期：
+     * 网络请求结束后才让系统回收这次广播，避免进程在回包前被杀掉。
+     * urgent=true 用于桌面组件点击：这是用户刚做的一次动作，不能被 1.8 秒合并窗口拖住。
+     */
+    fun request(c: Context, reason: String, onDone: (() -> Unit)? = null, urgent: Boolean = false) {
         val app = c.applicationContext
-        val cfg = SyncConfig.endpoint(app) ?: return
-        if (!cfg.enabled) return
-        if (!SyncNetwork.isOnWifi(app)) return
+        val cfg = SyncConfig.endpoint(app) ?: run {
+            onDone?.invoke()
+            return
+        }
+        if (!cfg.enabled) {
+            onDone?.invoke()
+            return
+        }
+        if (!SyncNetwork.isOnWifi(app)) {
+            onDone?.invoke()
+            return
+        }
 
         synchronized(lock) {
+            if (onDone != null) waiters.add(onDone)
             if (running || scheduled) {
                 pendingAgain = true
+                if (urgent) pendingUrgent = true
                 return
             }
             val now = SystemClock.elapsedRealtime()
-            val wait = (MIN_GAP_MS - (now - lastStart)).coerceAtLeast(0L)
+            val wait = if (urgent) 0L else (MIN_GAP_MS - (now - lastStart)).coerceAtLeast(0L)
             if (wait == 0L) {
                 start(app, reason)
             } else {
@@ -61,7 +79,12 @@ object SyncManager {
                 main.postDelayed({
                     synchronized(lock) {
                         scheduled = false
-                        if (running) pendingAgain = true else start(app, reason)
+                        if (running) {
+                            pendingAgain = true
+                            if (urgent) pendingUrgent = true
+                        } else {
+                            start(app, reason)
+                        }
                     }
                 }, wait)
             }
@@ -72,12 +95,21 @@ object SyncManager {
         /* 排队期间用户可能已经改了地址/Token，真正开始时再读一次当前配置 */
         val cfg = SyncConfig.endpoint(app)
         if (cfg == null || !cfg.enabled) {
-            synchronized(lock) { running = false }
+            synchronized(lock) {
+                running = false
+                drainWaiters()
+            }
             return
         }
         running = true
         lastStart = SystemClock.elapsedRealtime()
         io.execute { doSync(app, reason, cfg) }
+    }
+
+    private fun drainWaiters(): List<() -> Unit> {
+        val out = ArrayList<() -> Unit>(waiters)
+        waiters.clear()
+        return out
     }
 
     private fun finish(
@@ -100,13 +132,19 @@ object SyncManager {
                     .putExtra("error", error.orEmpty())
             )
         }
+        val callbacks: List<() -> Unit>
+        var followupUrgent = false
         synchronized(lock) {
             running = false
+            callbacks = drainWaiters()
             if (pendingAgain) {
                 pendingAgain = false
-                request(app, "followup")
+                followupUrgent = pendingUrgent
+                pendingUrgent = false
+                request(app, "followup", urgent = followupUrgent)
             }
         }
+        callbacks.forEach { runCatching { it() } }
     }
 
     private fun doSync(ctx: Context, reason: String, cfg: SyncConfig.Endpoint) {
@@ -150,6 +188,8 @@ object SyncManager {
                     SyncStore.ack(ctx, acked)
                     SyncStore.setInitialized(ctx, true)
                     SyncStore.setLastSyncAt(ctx, System.currentTimeMillis())
+                    /* App 没打开时也要让桌面组件吃到这次拉取到的数据 */
+                    com.beike.daytally.widget.WidgetRefresh.refreshAll(ctx)
                 }.onFailure { Log.w(TAG, "apply snapshot failed", it) }
                 finish(ctx, true, reason, null, cfg)
             }

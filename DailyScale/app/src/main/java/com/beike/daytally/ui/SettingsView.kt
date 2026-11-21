@@ -21,6 +21,7 @@ import com.beike.daytally.R
 import com.beike.daytally.Sound
 import com.beike.daytally.sync.SyncConfig
 import com.beike.daytally.sync.SyncManager
+import com.beike.daytally.sync.SyncPushService
 import com.beike.daytally.sync.SyncStore
 import com.beike.daytally.util.C
 import com.beike.daytally.util.Ui
@@ -230,7 +231,7 @@ class SettingsView(
     }
 
     private fun buildVersion(): View = TextView(context).apply {
-        text = "日刻 1.2.11 · 预览版"
+        text = "日刻 1.2.12 · 预览版"
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f * Ui.S)
         setTextColor(C.INK3)
         setPadding(dp(2f), dp(8f), 0, 0)
@@ -325,6 +326,7 @@ class SettingsView(
                 sound.save()
                 closeSheet()
                 render()
+                SyncPushService.restart(context)
                 SyncManager.request(context, "config")
             }
         }

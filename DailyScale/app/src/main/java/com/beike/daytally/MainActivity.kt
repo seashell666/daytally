@@ -2,7 +2,10 @@ package com.beike.daytally
 
 import android.content.BroadcastReceiver
 import android.content.IntentFilter
+import android.content.pm.PackageManager
+import android.Manifest
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -32,6 +35,8 @@ import com.beike.daytally.ui.TrendCallback
 import com.beike.daytally.ui.TrendView
 import com.beike.daytally.sync.SyncManager
 import com.beike.daytally.sync.SyncNetwork
+import com.beike.daytally.sync.SyncConfig
+import com.beike.daytally.sync.SyncPushService
 import com.beike.daytally.util.C
 import com.beike.daytally.util.Ui
 
@@ -116,6 +121,8 @@ class MainActivity : AppCompatActivity() {
 
         /* 局域网同步：视图都建好后再装回调/注册，避免首次网络回调早于页面初始化 */
         SyncNetwork.install(this)
+        SyncPushService.start(this)
+        maybeAskNotificationPermission()
         syncReceiver = object : BroadcastReceiver() {
             override fun onReceive(c: android.content.Context?, i: android.content.Intent?) {
                 repo.ensureToday()
@@ -160,6 +167,18 @@ class MainActivity : AppCompatActivity() {
         refreshCurrent()
         /* 首次打开；从后台回来也补一次。只在 Wi-Fi 下走，避免拿流量去连家里局域网。 */
         SyncManager.request(this, "app_open")
+        SyncPushService.start(this)
+    }
+
+    /** Android 13 起，实时同步的前台服务通知需要这个运行时权限；仅在已配同步时问一次。 */
+    private fun maybeAskNotificationPermission() {
+        if (Build.VERSION.SDK_INT < 33 || !SyncConfig.enabled(this)) return
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        ) return
+        runCatching {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 43)
+        }
     }
 
     override fun onDestroy() {
