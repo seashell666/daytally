@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.view.Gravity
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import com.beike.daytally.widget.BodyFatWidget
 import com.beike.daytally.widget.HeightWidget
 import com.beike.daytally.widget.WeekWidget
 
@@ -40,6 +41,13 @@ class WidgetPreviewActivity : Activity() {
             it.topMargin = px(14)
         }
         root.addView(height)
+
+        val bodyFat = BodyFatWidget.buildCard(this)
+            .apply(this, null)
+        bodyFat.layoutParams = LinearLayout.LayoutParams(px(358), px(264)).also {
+            it.topMargin = px(14)
+        }
+        root.addView(bodyFat)
 
         val wrap = FrameLayout(this).apply { addView(root) }
         setContentView(wrap)

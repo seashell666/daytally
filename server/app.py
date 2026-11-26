@@ -29,7 +29,19 @@ TOKEN = os.environ.get("DAYTALLY_TOKEN", "").strip()
 DB_PATH = os.environ.get("DAYTALLY_DB", "/data/daytally.db")
 MAX_BODY = 2 * 1024 * 1024
 
-METRICS = ("height", "push", "horse", "pullup", "custom")
+APP_VERSION = "1.4.0"
+# height 是旧版身高历史，保留在快照/事件里做兼容，但新客户端不再写入或展示；
+# muscle 是新版肌肉重量（公斤），前端五项目里的第一位已切换成它。
+METRICS = ("height", "muscle", "push", "horse", "pullup", "custom")
+SET_METRICS = ("height", "muscle")
+# 体脂率不是“按天覆盖的身高值”，也不是计数项目；它是一组可多次测量的独立记录。
+# 单独一张表、单独一组 API 字段，旧客户端不认识也不会影响原来的五项目同步。
+BODY_FAT_METRIC = "body_fat"
+BODY_FAT_UNIT = "%"
+BODY_FAT_MIN = 1.0
+BODY_FAT_MAX = 75.0
+MUSCLE_MIN = 20.0
+MUSCLE_MAX = 120.0
 DAY_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 # 所有已连接的手机共享一个版本号：任何一次同步写入成功后 +1，
@@ -46,6 +58,7 @@ def notify_change() -> None:
 
 DEFAULTS = {
     "height": {"name": "身高", "unit": "厘米", "per": 0, "goal": 0, "maxGroups": 0},
+    "muscle": {"name": "肌肉重量", "unit": "公斤", "per": 0, "goal": 0, "maxGroups": 0},
     "push": {"name": "俯卧撑", "unit": "个", "per": 12, "goal": 10000, "maxGroups": 32},
     "horse": {"name": "蹲马步", "unit": "分钟", "per": 11, "goal": 10000, "maxGroups": 32},
     "pullup": {"name": "引体向上", "unit": "个", "per": 12, "goal": 10000, "maxGroups": 32},
@@ -84,6 +97,19 @@ CREATE TABLE IF NOT EXISTS resets (
   metric TEXT PRIMARY KEY,
   reset_at INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS body_fat_records (
+  record_id TEXT PRIMARY KEY,
+  metric_type TEXT NOT NULL,
+  value REAL NOT NULL,
+  unit TEXT NOT NULL,
+  measured_at INTEGER NOT NULL,
+  source TEXT NOT NULL,
+  device_id TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  received_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_body_fat_measured ON body_fat_records(measured_at);
 """
 
 
@@ -105,6 +131,7 @@ def init_db() -> None:
     try:
         conn.executescript(SCHEMA)
         conn.execute("INSERT OR IGNORE INTO meta(k, v) VALUES('seeded', '0')")
+        conn.execute("INSERT OR IGNORE INTO meta(k, v) VALUES('body_fat_cleared_at', '0')")
         conn.commit()
     finally:
         conn.close()
@@ -117,6 +144,11 @@ def is_seeded(conn: sqlite3.Connection) -> bool:
 
 def set_seeded(conn: sqlite3.Connection) -> None:
     conn.execute("UPDATE meta SET v='1' WHERE k='seeded'")
+
+
+def body_fat_clear_at(conn: sqlite3.Connection) -> int:
+    row = conn.execute("SELECT v FROM meta WHERE k='body_fat_cleared_at'").fetchone()
+    return as_int(row["v"], 0) if row else 0
 
 
 def default_config(metric: str) -> dict:
@@ -138,6 +170,111 @@ def as_int(value, fallback: int) -> int:
         return int(value)
     except (TypeError, ValueError):
         return fallback
+
+
+def as_float(value) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        raise ValueError("invalid number")
+
+
+def validate_body_fat_record(raw, client_id: str) -> dict:
+    """校验并规范化一条体脂率记录。
+
+    只接受明确的身体脂肪百分比：metricType=body_fat、unit=%、1.0~75.0。
+    这里不做“缺字段就默认一个值”的补全——健康数据宁可拒收，也不能静默写错。
+    """
+    if not isinstance(raw, dict):
+        raise ValueError("body fat record must be object")
+    record_id = str(raw.get("recordId") or raw.get("record_id") or "").strip()
+    if not record_id or len(record_id) > 128:
+        raise ValueError("body fat record id missing or too long")
+    metric_type = str(raw.get("metricType") or raw.get("metric_type") or "").strip()
+    if metric_type != BODY_FAT_METRIC:
+        raise ValueError("body fat metricType must be body_fat")
+    unit = str(raw.get("unit") or "").strip()
+    if unit != BODY_FAT_UNIT:
+        raise ValueError("body fat unit must be %")
+    value = as_float(raw.get("value"))
+    if not (BODY_FAT_MIN <= value <= BODY_FAT_MAX):
+        raise ValueError("body fat out of range")
+    measured_at = as_int(raw.get("measuredAt") or raw.get("measured_at"), 0)
+    now = now_ms()
+    if measured_at <= 0 or measured_at > now + 24 * 60 * 60 * 1000:
+        raise ValueError("body fat measuredAt invalid")
+    created_at = as_int(raw.get("createdAt") or raw.get("created_at"), measured_at)
+    updated_at = as_int(raw.get("updatedAt") or raw.get("updated_at"), created_at)
+    if created_at <= 0:
+        created_at = measured_at
+    if updated_at <= 0:
+        updated_at = created_at
+    source = str(raw.get("source") or "okok").strip()[:32]
+    if not source:
+        source = "okok"
+    device_id = str(raw.get("deviceId") or raw.get("device_id") or client_id).strip()[:128]
+    if not device_id:
+        device_id = client_id[:128]
+    return {
+        "record_id": record_id,
+        "metric_type": BODY_FAT_METRIC,
+        "value": round(value, 1),
+        "unit": BODY_FAT_UNIT,
+        "measured_at": measured_at,
+        "source": source,
+        "device_id": device_id,
+        "created_at": created_at,
+        "updated_at": updated_at,
+    }
+
+
+def upsert_body_fat_record(conn: sqlite3.Connection, record: dict, received_at: int) -> bool:
+    """按 record_id 去重；只有更新的 updated_at 才覆盖同一条记录。"""
+    before = conn.total_changes
+    conn.execute(
+        """
+        INSERT INTO body_fat_records
+          (record_id, metric_type, value, unit, measured_at, source, device_id,
+           created_at, updated_at, received_at)
+        VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(record_id) DO UPDATE SET
+          value=excluded.value, unit=excluded.unit, measured_at=excluded.measured_at,
+          source=excluded.source, device_id=excluded.device_id,
+          updated_at=excluded.updated_at, received_at=excluded.received_at
+        WHERE excluded.updated_at > body_fat_records.updated_at
+        """,
+        (
+            record["record_id"], record["metric_type"], record["value"], record["unit"],
+            record["measured_at"], record["source"], record["device_id"],
+            record["created_at"], record["updated_at"], received_at,
+        ),
+    )
+    return conn.total_changes > before
+
+
+def body_fat_snapshot(conn: sqlite3.Connection) -> list[dict]:
+    rows = conn.execute(
+        """
+        SELECT record_id, metric_type, value, unit, measured_at, source, device_id,
+               created_at, updated_at
+        FROM body_fat_records
+        ORDER BY measured_at, record_id
+        """
+    ).fetchall()
+    return [
+        {
+            "recordId": r["record_id"],
+            "metricType": r["metric_type"],
+            "value": float(r["value"]),
+            "unit": r["unit"],
+            "measuredAt": int(r["measured_at"]),
+            "source": r["source"],
+            "deviceId": r["device_id"],
+            "createdAt": int(r["created_at"]),
+            "updatedAt": int(r["updated_at"]),
+        }
+        for r in rows
+    ]
 
 
 def validate_event(raw, client_id: str) -> dict:
@@ -172,12 +309,16 @@ def validate_event(raw, client_id: str) -> dict:
     elif kind == "remove":
         delta = -1.0
     elif kind == "set":
+        if metric not in SET_METRICS:
+            raise ValueError("set is only for height/muscle")
         try:
             value = float(raw.get("value"))
         except (TypeError, ValueError):
             raise ValueError("invalid value")
         if metric == "height" and not (0 <= value <= 227):
             raise ValueError("height out of range")
+        if metric == "muscle" and not (MUSCLE_MIN <= value <= MUSCLE_MAX):
+            raise ValueError("muscle out of range")
     elif kind == "config":
         cfg = raw.get("config")
         if not isinstance(cfg, dict):
@@ -189,7 +330,11 @@ def validate_event(raw, client_id: str) -> dict:
         per = as_int(cfg.get("per"), DEFAULTS[metric]["per"])
         goal = as_int(cfg.get("goal"), DEFAULTS[metric]["goal"])
         max_groups = as_int(cfg.get("maxGroups"), DEFAULTS[metric]["maxGroups"])
-        if per < 1 or per > 999 or goal < 0 or max_groups < 1 or max_groups > 999:
+        if metric in SET_METRICS:
+            # 设置值项目固定 per=0/goal=0/maxGroups=0；不参与计数目标校验。
+            if per != 0 or goal != 0 or max_groups != 0:
+                raise ValueError("set metric config must be per=0, goal=0, maxGroups=0")
+        elif per < 1 or per > 999 or goal < 0 or max_groups < 1 or max_groups > 999:
             raise ValueError("config out of range")
         config = {"name": name, "unit": unit, "per": per, "goal": goal, "maxGroups": max_groups}
     # reset 只需要 metric + occurredAt
@@ -285,6 +430,8 @@ def seed_from_snapshot(conn: sqlite3.Connection, payload: dict, received_at: int
                 continue
             if metric == "height" and not (0 <= v <= 227):
                 continue
+            if metric == "muscle" and not (MUSCLE_MIN <= v <= MUSCLE_MAX):
+                continue
             eid = "seed:" + metric + ":" + str(day) + ":" + uuid.uuid4().hex[:8]
             e = {
                 "id": eid, "client_id": "server-seed", "metric": metric, "day": day,
@@ -292,6 +439,16 @@ def seed_from_snapshot(conn: sqlite3.Connection, payload: dict, received_at: int
                 "seq": 0,
             }
             insert_event(conn, e, received_at)
+
+    # 体脂率历史作为独立记录集播种；失败的单条跳过，不拖垮原来的五项目快照。
+    for raw in payload.get("bodyFatSnapshot") or []:
+        if not isinstance(raw, dict):
+            continue
+        try:
+            record = validate_body_fat_record(raw, "server-seed")
+        except ValueError:
+            continue
+        upsert_body_fat_record(conn, record, received_at)
 
     # 快照已经包含这批事件的效果，把它们按 id 记为 ignored，下次重传不会再加一遍
     for raw in payload.get("events") or []:
@@ -329,7 +486,7 @@ def build_snapshot(conn: sqlite3.Connection) -> dict:
         cutoff = reset_at(conn, metric)
         data = {}
 
-        if metric == "height":
+        if metric in SET_METRICS:
             rows = conn.execute(
                 """
                 SELECT day, value FROM events
@@ -340,7 +497,8 @@ def build_snapshot(conn: sqlite3.Connection) -> dict:
             ).fetchall()
             for r in rows:
                 if r["day"] and r["value"] is not None:
-                    data[str(r["day"])] = float(r["value"])
+                    data[str(r["day"])] = round(float(r["value"]), 1) if metric == "muscle" \
+                        else float(r["value"])
         else:
             rows = conn.execute(
                 """
@@ -359,14 +517,26 @@ def build_snapshot(conn: sqlite3.Connection) -> dict:
 
         metrics[metric] = {**cfg, "data": data}
 
-    rev_row = conn.execute("SELECT COALESCE(MAX(received_at), 0) AS r FROM events").fetchone()
+    rev_row = conn.execute(
+        """
+        SELECT COALESCE(MAX(received_at), 0) AS r FROM (
+          SELECT received_at FROM events
+          UNION ALL
+          SELECT received_at FROM body_fat_records
+        )
+        """
+    ).fetchone()
     return {
         "ok": True,
-        "version": "1.2.12",
+        "version": APP_VERSION,
         "revision": int(rev_row["r"] or 0),
         "serverTime": now_ms(),
         "seeded": is_seeded(conn),
         "metrics": metrics,
+        "bodyFatRecords": body_fat_snapshot(conn),
+        "bodyFatSupported": True,
+        "muscleSupported": True,
+        "bodyFatClearAt": body_fat_clear_at(conn),
     }
 
 
@@ -385,6 +555,10 @@ def process_sync(payload: dict) -> dict:
         events = payload.get("events") or []
         if not isinstance(events, list):
             raise ValueError("events must be array")
+        body_fat_raw = payload.get("bodyFatRecords") or []
+        if not isinstance(body_fat_raw, list):
+            raise ValueError("bodyFatRecords must be array")
+        body_fat_records = [validate_body_fat_record(raw, client_id) for raw in body_fat_raw]
 
         acked = []
         if not seeded_now:
@@ -394,6 +568,11 @@ def process_sync(payload: dict) -> dict:
                 acked.append(e["id"])
             if events and not is_seeded(conn):
                 set_seeded(conn)
+
+        body_fat_acked = []
+        for record in body_fat_records:
+            upsert_body_fat_record(conn, record, received)
+            body_fat_acked.append(record["record_id"])
 
         if seeded_now:
             acked = []
@@ -405,8 +584,9 @@ def process_sync(payload: dict) -> dict:
         snap = build_snapshot(conn)
         snap["seeded"] = bool(seeded_now)
         snap["acked"] = acked
+        snap["bodyFatAcked"] = body_fat_acked
         # 只有真的有新事件（或第一次播种）才唤醒别的手机；重复上报不会造成风暴
-        if seeded_now or events:
+        if seeded_now or events or body_fat_records:
             notify_change()
         return snap
     except Exception:
@@ -416,8 +596,36 @@ def process_sync(payload: dict) -> dict:
         conn.close()
 
 
+def clear_all_data() -> dict:
+    """物理清空记录，但保留五个项目的配置。
+
+    meta.seeded 设为 1：清空后不让某台旧手机拿本地历史再播种回来。
+    """
+    conn = connect()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        conn.execute("DELETE FROM events")
+        conn.execute("DELETE FROM resets")
+        conn.execute("DELETE FROM body_fat_records")
+        conn.execute(
+            "INSERT INTO meta(k, v) VALUES('body_fat_cleared_at', ?) "
+            "ON CONFLICT(k) DO UPDATE SET v=excluded.v",
+            (str(now_ms()),),
+        )
+        set_seeded(conn)
+        conn.commit()
+        snap = build_snapshot(conn)
+        notify_change()
+        return snap
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
 class Handler(BaseHTTPRequestHandler):
-    server_version = "DayTallySync/1.2.12"
+    server_version = "DayTallySync/" + APP_VERSION
 
     def _auth(self) -> bool:
         if not TOKEN:
@@ -458,7 +666,7 @@ class Handler(BaseHTTPRequestHandler):
                     seeded = is_seeded(conn)
                 finally:
                     conn.close()
-                self._json(200, {"ok": True, "service": "daytally-sync", "version": "1.2.12", "seeded": seeded})
+                self._json(200, {"ok": True, "service": "daytally-sync", "version": APP_VERSION, "seeded": seeded, "bodyFatSupported": True, "muscleSupported": True})
                 return
             if self.path == "/api/v1/stream":
                 if not self._auth():
@@ -511,7 +719,7 @@ class Handler(BaseHTTPRequestHandler):
             self._json(500, {"ok": False, "error": "server error"})
 
     def do_POST(self):
-        if self.path != "/api/v1/sync":
+        if self.path != "/api/v1/sync" and self.path != "/api/v1/admin/clear-data":
             self._json(404, {"ok": False, "error": "not found"})
             return
         if not self._auth():
@@ -519,6 +727,15 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             payload = self._read_body()
+            if self.path == "/api/v1/admin/clear-data":
+                if str(payload.get("confirm") or "") != "CLEAR_DATA":
+                    self._json(400, {"ok": False, "error": "confirm CLEAR_DATA required"})
+                    return
+                snap = clear_all_data()
+                snap["acked"] = []
+                snap["bodyFatAcked"] = []
+                self._json(200, {"ok": True, "mode": "purge", "snapshot": snap})
+                return
             result = process_sync(payload)
             self._json(200, result)
         except ValueError as exc:

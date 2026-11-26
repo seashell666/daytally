@@ -9,6 +9,10 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <queries>
+        <package android:name="com.chipsea.btcontrol" />
+    </queries>
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -26,6 +30,7 @@
             </intent-filter>
         </activity>
 
+        <!-- 兼容旧桌面组件的入口：旧 PendingIntent 仍指向这里，但只做转发，不再手动记录身高 -->
         <activity
             android:name=".HeightInputActivity"
             android:exported="false"
@@ -33,12 +38,33 @@
             android:excludeFromRecents="true"
             android:launchMode="singleInstance" />
 
+        <!-- 体脂率/肌肉重量「去记录」：打开 OKOK 正常称重流程，测完回传结果 -->
+        <activity
+            android:name=".bodyfat.BodyFatEntryActivity"
+            android:exported="false"
+            android:theme="@style/Theme.DayTally.Transparent"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance" />
+
+        <!-- 只接收日刻交给 OKOK 适配层的 PendingIntent；不向任意应用暴露 -->
+        <receiver
+            android:name=".bodyfat.BodyFatResultReceiver"
+            android:exported="false" />
+
         <!-- 开发预览：ad hoc 启动核对 4×2 大卡渲染 -->
         <activity
             android:name=".WidgetPreviewActivity"
             android:exported="false"
             android:theme="@style/Theme.DayTally"
             android:excludeFromRecents="true" />
+
+        <!-- 只给日刻内部/调试用的桌面固定请求：透明、立即结束，由系统桌面决定是否添加 -->
+        <activity
+            android:name=".PinWidgetActivity"
+            android:exported="false"
+            android:theme="@style/Theme.DayTally.Transparent"
+            android:excludeFromRecents="true"
+            android:noHistory="true" />
 
         <!-- 实时同步长连接：后台保持一条 SSE，有变化时直接刷新桌面组件 -->
         <service
@@ -115,13 +141,25 @@
         <receiver
             android:name=".widget.HeightWidget"
             android:exported="true"
-            android:label="身高 · 大卡">
+            android:label="肌肉重量 · 大卡">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_height_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.BodyFatWidget"
+            android:exported="true"
+            android:label="体脂率 · 大卡">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_body_fat_info" />
         </receiver>
 
         <!-- 桌面钩子心跳：设置页据此判断“桌面长按到底接没接上” -->
@@ -135,7 +173,7 @@
             android:value="true" />
         <meta-data
             android:name="xposeddescription"
-            android:value="日刻桌面方块：长按直接退一组（需在 Vector 中启用本模块）" />
+            android:value="日刻桌面方块 + OKOK 称重回传：长按退一组、自动记录体脂/肌肉（需在 Vector 中启用本模块）" />
         <meta-data
             android:name="xposedminversion"
             android:value="82" />

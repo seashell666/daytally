@@ -73,5 +73,19 @@ object WidgetRefresh {
         if (hIds.isNotEmpty()) {
             hIds.forEach { id -> manager.updateAppWidget(id, HeightWidget.buildCard(app, repo)) }
         }
+
+        // 体脂率大卡：数据在 BodyFatStore，不读 Repo 的五个项目
+        refreshBodyFat(app)
+    }
+
+    fun refreshBodyFat(ctx: Context) {
+        val manager = AppWidgetManager.getInstance(ctx.applicationContext) ?: return
+        val ids = manager.getAppWidgetIds(
+            ComponentName(ctx.applicationContext, BodyFatWidget::class.java)
+        )
+        if (ids.isEmpty()) return
+        ids.forEach { id ->
+            manager.updateAppWidget(id, BodyFatWidget.buildCard(ctx.applicationContext))
+        }
     }
 }

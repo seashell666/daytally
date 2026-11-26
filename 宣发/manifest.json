@@ -1,0 +1,689 @@
+{
+  "schema": "daytally-promo-pack/1",
+  "generated_for": "Claude / ChatGPT / Seedance 2.5",
+  "generated_on": "2026-11-22",
+  "product": {
+    "name_zh": "日刻",
+    "name_en": "DayTally",
+    "one_liner": "桌面点一下，数字就刻上去。",
+    "category": "Android 每日自我量化 / 桌面组件计数工具",
+    "platform": "Android",
+    "version": "1.2.12",
+    "versionCode": 15,
+    "minSdk": 26,
+    "targetSdk": 34,
+    "ui": "单 Activity · 原生 View + Canvas",
+    "repo": "https://github.com/seashell666/daytally",
+    "release": "https://github.com/seashell666/daytally/releases/tag/v1.2.12"
+  },
+  "start_here": [
+    "README.md",
+    "00-START-HERE.md",
+    "01-产品一页纸.md",
+    "02-功能清单.md",
+    "03-页面与交互.md",
+    "05-导演手册-视频提示词.md"
+  ],
+  "demo_data": {
+    "date": "2026-11-22",
+    "height": {
+      "now": 175.0,
+      "week": [
+        "173.1",
+        "173.3",
+        "173.4",
+        "--",
+        "174.0",
+        "175.0",
+        "--"
+      ],
+      "gap": "11/20"
+    },
+    "counters": {
+      "pushup": {
+        "unit": "个",
+        "per": 12,
+        "today_groups": 6,
+        "today_value": 72,
+        "yesterday_groups": 40,
+        "sum_30d_groups": 191,
+        "sum_30d_value": 2292,
+        "min": 2,
+        "max": 40,
+        "max_date": "11/21",
+        "change_7d": -2
+      },
+      "horse": {
+        "unit": "分钟",
+        "per": 11,
+        "today_groups": 3,
+        "today_value": 33,
+        "yesterday_groups": 59,
+        "sum_30d_groups": 135,
+        "sum_30d_value": 1485
+      },
+      "pullup": {
+        "unit": "个",
+        "per": 12,
+        "today_groups": 1,
+        "today_value": 12,
+        "yesterday_groups": 24,
+        "sum_30d_groups": 109,
+        "sum_30d_value": 1308
+      },
+      "custom": {
+        "unit": "个",
+        "per": 10,
+        "today_groups": 2,
+        "today_value": 20,
+        "yesterday_groups": 37,
+        "sum_30d_groups": 146,
+        "sum_30d_value": 1460
+      }
+    },
+    "desktop_widget_default": "蹲马步 33 分钟",
+    "trend_default": "俯卧撑"
+  },
+  "media": {
+    "key_visual_16x9": "promo/key-visual-16x9.png",
+    "key_visual_9x16": "promo/key-visual-9x16.png",
+    "storyboard": "promo/storyboard-6frames.png",
+    "brand_endcard": "promo/brand-endcard.png",
+    "sync_two_phones": "promo/sync-two-phones.png",
+    "ui_screens": [
+      "screens/01-today.png",
+      "screens/02-trend.png",
+      "screens/03-projects.png",
+      "screens/04-settings.png",
+      "screens/05-desktop-widgets.png"
+    ],
+    "cutout_cards": [
+      "cards/card-height.png",
+      "cards/card-counter-pushup.png",
+      "cards/card-weekcard-squat.png",
+      "cards/card-project-height.png",
+      "cards/card-project-pushup.png",
+      "cards/card-settings-hook.png",
+      "cards/card-settings-sync.png",
+      "cards/sheet-sync.png"
+    ]
+  },
+  "video_rules": [
+    "不要让视频模型直接生成可读 UI 文字/数字；屏幕内容用 PNG 贴屏或后期合成。",
+    "Seedance 只生成手、手机、桌面、光、运动；UI 用本包素材。",
+    "16:9 用 key-visual-16x9；9:16 用 key-visual-9x16。",
+    "两台手机同步用 sync-two-phones.png 或两段真实屏幕素材做时间差。",
+    "每条镜头必须有明确动作，不用空镜凑时长。"
+  ],
+  "privacy_notes": [
+    "所有数字为演示数据，不是真实用户数据。",
+    "screens/04-settings.png 与 screens/05-desktop-widgets.png 为原型渲染，分别避免真实内网 IP 与个人壁纸。",
+    "HTML 中的 192.168.1.50 是示意地址，不是任何真实设备。",
+    "包内不含 APK；安装包见 Release（见 07-版本与发布.md）。"
+  ],
+  "apk_not_included": {
+    "name": "日刻1.2.12.apk",
+    "bytes": 4296874,
+    "sha256": "7FDDBE0DD35CA7C4E98026EB775BC279AE92B28BE6C59EEE108D53DAE7224D52",
+    "release": "https://github.com/seashell666/daytally/releases/tag/v1.2.12"
+  },
+  "counts": {
+    "files": 71,
+    "bytes": 7378552
+  },
+  "files": [
+    {
+      "path": "00-START-HERE.md",
+      "type": "md",
+      "bytes": 3089,
+      "sha256": "18c948b2fa486cee13bcba7533265c7e08eadeaca205539c98c9e422c00e0826",
+      "purpose": "60 秒产品 brief，可直接粘给 Claude/ChatGPT"
+    },
+    {
+      "path": "01-产品一页纸.md",
+      "type": "md",
+      "bytes": 4667,
+      "sha256": "7a40bdcd36587c192a11f5725f54c4efef775f98dcdd3adb4e988b234b77e800",
+      "purpose": "定位、用户、痛点、差异、商业可能性"
+    },
+    {
+      "path": "02-功能清单.md",
+      "type": "md",
+      "bytes": 7579,
+      "sha256": "1ad30007583f9d7ae29b4a38614cbac76905e626e58441bddcb5579c309cfc3a",
+      "purpose": "全部功能、状态、限制、版本归属"
+    },
+    {
+      "path": "03-页面与交互.md",
+      "type": "md",
+      "bytes": 9208,
+      "sha256": "5e319fcedd3eca3a7da4b034c1c5270adb409b0bbd2a9173769b8d24fea067d3",
+      "purpose": "逐页说明：今天/趋势/项目/设置/桌面组件"
+    },
+    {
+      "path": "04-视觉规范.md",
+      "type": "md",
+      "bytes": 6654,
+      "sha256": "e857b4e98efe03176d2728315731614b467d19f0254e5ce0bad711540331486e",
+      "purpose": "颜色、字体、圆角、间距、动效、语气"
+    },
+    {
+      "path": "05-导演手册-视频提示词.md",
+      "type": "md",
+      "bytes": 14837,
+      "sha256": "ff97578ffba7066207152dfd671ef7d12e4d14a82addc78cc6f1967f593050e7",
+      "purpose": "3 套视频方案 + Seedance 2.5 镜头提示词 + 工作流"
+    },
+    {
+      "path": "06-AI使用说明.md",
+      "type": "md",
+      "bytes": 7025,
+      "sha256": "b49b6e867e7d07eebc87c8410522d51ab3f787501dfceac289e44f3d359e79c5",
+      "purpose": "给 Claude/ChatGPT 的现成提示词模板"
+    },
+    {
+      "path": "07-版本与发布.md",
+      "type": "md",
+      "bytes": 3464,
+      "sha256": "ddb8287dd676058f70a5ca245618c90ca734c2a4c91625238d40d706febd4936",
+      "purpose": "1.2.12 版本、APK、GitHub、校验信息"
+    },
+    {
+      "path": "README.md",
+      "type": "md",
+      "bytes": 6540,
+      "sha256": "36ea5ceb923c94cb2bd4befeeb709b86a4555b7068e704fc3b3bffa9787fb148",
+      "purpose": "总入口：30 秒看懂、目录、图片用法、视频 AI 硬规则"
+    },
+    {
+      "path": "brand/daytally-icon-1024.png",
+      "type": "image",
+      "bytes": 387258,
+      "sha256": "0ec8477c904860cccef9d42f3448d1f4d1b26f5d92ec30838bd64c6515f3d891",
+      "purpose": "App 图标 1024（主）",
+      "width": 1024,
+      "height": 1024
+    },
+    {
+      "path": "brand/daytally-icon-512.png",
+      "type": "image",
+      "bytes": 126865,
+      "sha256": "f9f898a480370a5da99094acbc0f921a6f0a869837d45e5a273800f7a67f6dc7",
+      "purpose": "App 图标 512",
+      "width": 512,
+      "height": 512
+    },
+    {
+      "path": "brand/daytally-icon-alt-1024.png",
+      "type": "image",
+      "bytes": 490422,
+      "sha256": "a798a39c6f486c61a45cfe3b4802738978f64b59316985e67ed032b080e57acd",
+      "purpose": "App 图标备选 1024",
+      "width": 1024,
+      "height": 1024
+    },
+    {
+      "path": "cards/card-counter-pushup.png",
+      "type": "image",
+      "bytes": 29433,
+      "sha256": "d9f6a15ae0eff0703b9e1f88136e59dc2c833293dab56b725633ce6d04f79c69",
+      "purpose": "切图：俯卧撑计数卡 72 / +12",
+      "width": 636,
+      "height": 214
+    },
+    {
+      "path": "cards/card-height.png",
+      "type": "image",
+      "bytes": 77884,
+      "sha256": "8e93ca8d09c3635bedf29c57a5ac35344db4fcb5ec56388c0ef782dfe8e2a497",
+      "purpose": "切图：今天页身高大卡 175.0",
+      "width": 644,
+      "height": 290
+    },
+    {
+      "path": "cards/card-project-height.png",
+      "type": "image",
+      "bytes": 17303,
+      "sha256": "b68c214f2190c10f61ad81a5709c6d06805d9896a35a860afb3a833adcf1c7e1",
+      "purpose": "切图：项目页身高卡",
+      "width": 636,
+      "height": 212
+    },
+    {
+      "path": "cards/card-project-pushup.png",
+      "type": "image",
+      "bytes": 18182,
+      "sha256": "a5dfc49ef43364727aeb2471da755fc924041378113f3b4e68310c9177108ddd",
+      "purpose": "切图：项目页俯卧撑卡",
+      "width": 636,
+      "height": 214
+    },
+    {
+      "path": "cards/card-settings-hook.png",
+      "type": "image",
+      "bytes": 48573,
+      "sha256": "10b2683947079808bb833885788e0e4c974d5303b809dfc090d25e4c19c42911",
+      "purpose": "切图：设置页长按接管卡（已接上）",
+      "width": 636,
+      "height": 168
+    },
+    {
+      "path": "cards/card-settings-sync.png",
+      "type": "image",
+      "bytes": 36714,
+      "sha256": "ef404e4602392aaddc418f24d137953573c5e903fd80334becf13d5c2caf80b5",
+      "purpose": "切图：设置页同步服务卡（已连接 / 192.168.1.50）",
+      "width": 636,
+      "height": 138
+    },
+    {
+      "path": "cards/card-weekcard-squat.png",
+      "type": "image",
+      "bytes": 91998,
+      "sha256": "b275f119ddfed0f08df68ba2ab463368aafbb0c8f2a4bffde23142cdac27388f",
+      "purpose": "切图：桌面计数大卡 33 分钟 / 蹲马步",
+      "width": 644,
+      "height": 356
+    },
+    {
+      "path": "cards/sheet-sync.png",
+      "type": "image",
+      "bytes": 50420,
+      "sha256": "af34da9636dff4361e5cb7d55c755dd07cc5b3c2e6941d9e89b1f331ad4b1833",
+      "purpose": "切图：同步设置弹窗",
+      "width": 660,
+      "height": 762
+    },
+    {
+      "path": "code/SOURCE-MAP.md",
+      "type": "md",
+      "bytes": 4631,
+      "sha256": "902c2c3c0a25f0837fa0735c47eb794bb7a699ef4afb6dfe277f8f82ab7c6ee5",
+      "purpose": "源码地图：入口、页面、组件、同步、易误读点"
+    },
+    {
+      "path": "code/android/AndroidManifest.xml",
+      "type": "xml",
+      "bytes": 6047,
+      "sha256": "c6a15fa0ab9bbb7e0cce94a5c42e33040c717284568b623c42d0963799678718",
+      "purpose": "Android 清单：权限、Activity、Service、Provider"
+    },
+    {
+      "path": "code/android/app-build.gradle",
+      "type": "gradle",
+      "bytes": 2265,
+      "sha256": "ca87043e6833ccf9ea061e2ecab2aee3ee756734ea79d5122349be736bef49d8",
+      "purpose": "构建配置：版本、SDK、依赖"
+    },
+    {
+      "path": "code/app-kotlin/daytally/HeightInputActivity.kt",
+      "type": "kotlin",
+      "bytes": 6120,
+      "sha256": "659de864e1af8e60ce6ab889b7697017366effe05e171871a6e35074b2a32c25",
+      "purpose": ""
+    },
+    {
+      "path": "code/app-kotlin/daytally/HookState.kt",
+      "type": "kotlin",
+      "bytes": 2147,
+      "sha256": "987fbe882a2675a0bc87d256e0e8754b2f2a7a7c761edc068e44e1e696ecf411",
+      "purpose": ""
+    },
+    {
+      "path": "code/app-kotlin/daytally/HookStateReceiver.kt",
+      "type": "kotlin",
+      "bytes": 682,
+      "sha256": "8a34d3930560c1e4430dc424d29f938eef847ae92a14285351b5a52a60148ee1",
+      "purpose": ""
+    },
+    {
+      "path": "code/app-kotlin/daytally/MainActivity.kt",
+      "type": "kotlin",
+      "bytes": 18373,
+      "sha256": "9178be2bc7278c2cc714c87518fa6d31776c16baebbbcb2689f1f5f91ac13ffe",
+      "purpose": ""
+    },
+    {
+      "path": "code/app-kotlin/daytally/Repo.kt",
+      "type": "kotlin",
+      "bytes": 9938,
+      "sha256": "aabc3a4cf5abaa2a552b61c36f58115126db6ff50604666bbb10dba5c7c12cb5",
+      "purpose": ""
+    },
+    {
+      "path": "code/app-kotlin/daytally/Sound.kt",
+      "type": "kotlin",
+      "bytes": 2931,
+      "sha256": "467604b36277412ea06c7e19fa5ae90a93c2b2b1c690709f9be651b16e85a792",
+      "purpose": ""
+    },
+    {
+      "path": "code/app-kotlin/daytally/WidgetPreviewActivity.kt",
+      "type": "kotlin",
+      "bytes": 1641,
+      "sha256": "de8e4eb39bc2c520219014cd0970c5dd51308b66d22405493ab199964e07f363",
+      "purpose": ""
+    },
+    {
+      "path": "code/app-kotlin/daytally/model/Metric.kt",
+      "type": "kotlin",
+      "bytes": 576,
+      "sha256": "21268c6e125dbb9c2423bd8d7c29ac448e466e32bd3f638a0f2bc8798a2d2eef",
+      "purpose": ""
+    },
+    {
+      "path": "code/app-kotlin/daytally/sync/BootReceiver.kt",
+      "type": "kotlin",
+      "bytes": 549,
+      "sha256": "c725d1577366f0c387f3fd15e294a9c26d47416052599823a4337f4197d7937e",
+      "purpose": ""
+    },
+    {
+      "path": "code/app-kotlin/daytally/sync/SyncConfig.kt",
+      "type": "kotlin",
+      "bytes": 2759,
+      "sha256": "1157a1f945c08332d45ee834a99f5e38699ff617145a49f43905c6d320d0a66f",
+      "purpose": ""
+    },
+    {
+      "path": "code/app-kotlin/daytally/sync/SyncManager.kt",
+      "type": "kotlin",
+      "bytes": 8903,
+      "sha256": "123fecfe5c4d4773cd05fe55b517e2db3b3f76626c419e70e3e22f252a74c7a0",
+      "purpose": ""
+    },
+    {
+      "path": "code/app-kotlin/daytally/sync/SyncNetwork.kt",
+      "type": "kotlin",
+      "bytes": 1903,
+      "sha256": "f0fe24115b3489a6645922df6290012ca1b00629ea8e648907cf3ddb82a9b433",
+      "purpose": ""
+    },
+    {
+      "path": "code/app-kotlin/daytally/sync/SyncPushService.kt",
+      "type": "kotlin",
+      "bytes": 7281,
+      "sha256": "8082eefab96c761a2a305018d46d52a7bc3ba651d806cce14dc60754aae2815c",
+      "purpose": ""
+    },
+    {
+      "path": "code/app-kotlin/daytally/sync/SyncStore.kt",
+      "type": "kotlin",
+      "bytes": 7253,
+      "sha256": "b86c609af18fabbf6b687a1bd04bdbb0a7f2ec3bb299903fdbfc73d43ffb3165",
+      "purpose": ""
+    },
+    {
+      "path": "code/app-kotlin/daytally/ui/ChartView.kt",
+      "type": "kotlin",
+      "bytes": 6460,
+      "sha256": "aaf61503fa2bb9c48bee37c181b56eaeab0498e0ac2d499e74536c70ecb3c02b",
+      "purpose": ""
+    },
+    {
+      "path": "code/app-kotlin/daytally/ui/HomeView.kt",
+      "type": "kotlin",
+      "bytes": 14527,
+      "sha256": "88fc8cc104645c9877c1288a9510102a18e0dbd145a972ce9a28890a4911bdeb",
+      "purpose": ""
+    },
+    {
+      "path": "code/app-kotlin/daytally/ui/ImePad.kt",
+      "type": "kotlin",
+      "bytes": 3939,
+      "sha256": "a716bcc532cb2517956d39e458b6cd0479ca6af1fd0d377f47b0872ab256fa55",
+      "purpose": ""
+    },
+    {
+      "path": "code/app-kotlin/daytally/ui/ProjectsView.kt",
+      "type": "kotlin",
+      "bytes": 25496,
+      "sha256": "e42bb843092e465e74204a415c105cd1df83cc5215904d85b3ebeef6bf906963",
+      "purpose": ""
+    },
+    {
+      "path": "code/app-kotlin/daytally/ui/SettingsView.kt",
+      "type": "kotlin",
+      "bytes": 16551,
+      "sha256": "31514ccadbce4f5163faf42a1eb84d7226a97bdbf10e8db9d9f6ada80fa69e73",
+      "purpose": ""
+    },
+    {
+      "path": "code/app-kotlin/daytally/ui/TrendView.kt",
+      "type": "kotlin",
+      "bytes": 14978,
+      "sha256": "e6be9a8289bf39f5358448ec9bc822368c425929c34e14d6cdf348e30a8f9f6b",
+      "purpose": ""
+    },
+    {
+      "path": "code/app-kotlin/daytally/util/Colors.kt",
+      "type": "kotlin",
+      "bytes": 1349,
+      "sha256": "f5572c0cb61a25773885e9d2bc920aac74fb5b57cac5f8d906721973d816c79d",
+      "purpose": ""
+    },
+    {
+      "path": "code/app-kotlin/daytally/util/Ui.kt",
+      "type": "kotlin",
+      "bytes": 950,
+      "sha256": "1f5ff67c1f07d83c24a826e8b3ee9358449ddd982ee5a4fced7bd13efb95fcc0",
+      "purpose": ""
+    },
+    {
+      "path": "code/app-kotlin/daytally/widget/HeightWidget.kt",
+      "type": "kotlin",
+      "bytes": 5368,
+      "sha256": "f9f2fbca3322c36a7d5fa0fdcd2c27e5abe7c88c5d3764a061eb97506566e976",
+      "purpose": ""
+    },
+    {
+      "path": "code/app-kotlin/daytally/widget/RingBitmap.kt",
+      "type": "kotlin",
+      "bytes": 1907,
+      "sha256": "4a8f15045fe1631715ec9163b97353a81454f6b0a9ec5bfe7f19e6c4348819fa",
+      "purpose": ""
+    },
+    {
+      "path": "code/app-kotlin/daytally/widget/WeekWidget.kt",
+      "type": "kotlin",
+      "bytes": 7640,
+      "sha256": "ff36e95371147e2f3020ee4763518aa076be458ea272489d16071b41d1153486",
+      "purpose": ""
+    },
+    {
+      "path": "code/app-kotlin/daytally/widget/WidgetProvider.kt",
+      "type": "kotlin",
+      "bytes": 9867,
+      "sha256": "c9cbdce0562ef631c83ed3aab2d3a0c1e0c64124fc81360700b6d86abdbd9f9b",
+      "purpose": ""
+    },
+    {
+      "path": "code/app-kotlin/daytally/widget/WidgetRefresh.kt",
+      "type": "kotlin",
+      "bytes": 2806,
+      "sha256": "21c61e2cce8bdaf34efdbb7dbdadf6af2ed6cb8ed3d9ca22d4af64335577e2ca",
+      "purpose": ""
+    },
+    {
+      "path": "code/app-kotlin/daytally/xposed/DayTallyXposed.kt",
+      "type": "kotlin",
+      "bytes": 52624,
+      "sha256": "08ee6eb5107e75767ed6becde0a2e0348703b12362e441f515de39a92bfec8fd",
+      "purpose": ""
+    },
+    {
+      "path": "code/design-tokens.json",
+      "type": "json",
+      "bytes": 3152,
+      "sha256": "0995daffca65b3bf76ee8ffc9d8d14615169ec979f1709e64ba83b676695db33",
+      "purpose": "设计变量：颜色/字体/圆角/间距/动效时长"
+    },
+    {
+      "path": "code/screen-map.json",
+      "type": "json",
+      "bytes": 6739,
+      "sha256": "daebefc1b622af56b7db6176fc7acfa921caf4be091adf723fcc168a6ab7f5f5",
+      "purpose": "屏幕结构：分区、控件、状态、素材对应"
+    },
+    {
+      "path": "promo/brand-endcard.png",
+      "type": "image",
+      "bytes": 187324,
+      "sha256": "f9084f2198c73948bf42f5b0e869bb34af0d4edadcaaca3dae310842cf22a3d5",
+      "purpose": "片尾品牌卡（图标 + 日刻 + 标语 + v1.2.12）",
+      "width": 1200,
+      "height": 700
+    },
+    {
+      "path": "promo/key-visual-16x9.png",
+      "type": "image",
+      "bytes": 550040,
+      "sha256": "c2773b7ae2694268e61175627e2e347e69882435f69c3616ccf4464543d214b8",
+      "purpose": "主视觉 16:9：左标语 + 右真机 + 浮动卡",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "path": "promo/key-visual-9x16.png",
+      "type": "image",
+      "bytes": 515459,
+      "sha256": "052d5dec7ad89e2566adc33db038d10da6f199c298b5708f56ba4b0f50bb2dca",
+      "purpose": "主视觉 9:16：竖版首帧 / 投放",
+      "width": 1080,
+      "height": 1920
+    },
+    {
+      "path": "promo/storyboard-6frames.png",
+      "type": "image",
+      "bytes": 458411,
+      "sha256": "0cb5d13afd46dea997372b81afb1f8fa56719327a57f2eb58af8e9f180352d60",
+      "purpose": "六帧故事板联系表（S01-S06）",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "path": "promo/sync-two-phones.png",
+      "type": "image",
+      "bytes": 358098,
+      "sha256": "6fa218b3a05aa72ed4ba60c4a9eb94cc84a30682f6e73f4caf9c291797a7fc07",
+      "purpose": "两台手机同步示意（A 点，B 变）",
+      "width": 1200,
+      "height": 800
+    },
+    {
+      "path": "promo/widgets-stack.png",
+      "type": "image",
+      "bytes": 246999,
+      "sha256": "aebcaeb4aa4877b6c058eda8a346d5984b53f84992a0a9416b4e07eb7378d9d9",
+      "purpose": "桌面组件堆叠裁图（干净壁纸）",
+      "width": 660,
+      "height": 985
+    },
+    {
+      "path": "prototype/board-v12.png",
+      "type": "image",
+      "bytes": 1029749,
+      "sha256": "deccf4ac1e0f4bd55a6e88416b96dfdd2a5e044fd40af700d37f6241edb5c538",
+      "purpose": "v12 原型全页展板",
+      "width": 1600,
+      "height": 2107
+    },
+    {
+      "path": "prototype/daytally-prototype-v12.html",
+      "type": "html",
+      "bytes": 93051,
+      "sha256": "ae6e1b31ca9aee6c1bd6c27a943100fc39ff2390274c386acf98d9ce41f45292",
+      "purpose": "v12 可交互 HTML 原型（与 1.2.12 真机对齐）"
+    },
+    {
+      "path": "prototype/phone-app-home.png",
+      "type": "image",
+      "bytes": 240784,
+      "sha256": "ffcc917e7e9f9efe60b0178bd4de1eb050fd9705f482dc26987699a4a1adcbb8",
+      "purpose": "原型渲染：今天页",
+      "width": 700,
+      "height": 1534
+    },
+    {
+      "path": "prototype/phone-desktop.png",
+      "type": "image",
+      "bytes": 371490,
+      "sha256": "66c8caf43ce678e70ce28963c30dbaf4211bbbe728fc5e28009704015f44f36b",
+      "purpose": "原型渲染：桌面场景（身高卡 + 4 个 1×1 + 计数大卡）",
+      "width": 700,
+      "height": 1534
+    },
+    {
+      "path": "prototype/phone-projects.png",
+      "type": "image",
+      "bytes": 126264,
+      "sha256": "f05ae8fb75b0811ab555160b3ee3d8121b23de9e93474a8714b95155d1df1870",
+      "purpose": "原型渲染：项目页",
+      "width": 700,
+      "height": 1534
+    },
+    {
+      "path": "prototype/phone-settings-connected.png",
+      "type": "image",
+      "bytes": 136571,
+      "sha256": "c05fc038cb1215625e46f325c710fa6210ca4e60bae1f6b4537953a055415212",
+      "purpose": "原型渲染：设置页（hook 已接上 + 同步已连接，IP 已脱敏）",
+      "width": 700,
+      "height": 1534
+    },
+    {
+      "path": "prototype/phone-trend.png",
+      "type": "image",
+      "bytes": 99936,
+      "sha256": "c9ef5a9ce65a9119272acef68121d8b183abbf39ab78d7ab60f23f05183a5ac4",
+      "purpose": "原型渲染：趋势页",
+      "width": 700,
+      "height": 1534
+    },
+    {
+      "path": "screens/01-today.png",
+      "type": "image",
+      "bytes": 271952,
+      "sha256": "b9b01192fa8875135c16ae924854b60dd47a9914df0a65037adb5a8e46f4b884",
+      "purpose": "1.2.12 真机：今天页（175.0 / 72 / 33 / 12 / 20）",
+      "width": 1440,
+      "height": 3200
+    },
+    {
+      "path": "screens/02-trend.png",
+      "type": "image",
+      "bytes": 219700,
+      "sha256": "4e3636b0ded95763a9b8cc3c3381a746cb6e9ca3d912f3c23892012b581d35a4",
+      "purpose": "1.2.12 真机：趋势页（俯卧撑 30 天，最高 40）",
+      "width": 1440,
+      "height": 3200
+    },
+    {
+      "path": "screens/03-projects.png",
+      "type": "image",
+      "bytes": 268196,
+      "sha256": "93b6ffef67c76ac69d917c6073fbbb1e87a7dec2d9edb65a10d4b7670f90c8b9",
+      "purpose": "1.2.12 真机：项目页（5 张卡）",
+      "width": 1440,
+      "height": 3200
+    },
+    {
+      "path": "screens/04-settings.png",
+      "type": "image",
+      "bytes": 136571,
+      "sha256": "c05fc038cb1215625e46f325c710fa6210ca4e60bae1f6b4537953a055415212",
+      "purpose": "设置页渲染（与真机同构，IP 用 192.168.1.50 示意）",
+      "width": 700,
+      "height": 1534
+    },
+    {
+      "path": "screens/05-desktop-widgets.png",
+      "type": "image",
+      "bytes": 371490,
+      "sha256": "66c8caf43ce678e70ce28963c30dbaf4211bbbe728fc5e28009704015f44f36b",
+      "purpose": "桌面场景渲染（干净壁纸，无个人桌面内容）",
+      "width": 700,
+      "height": 1534
+    }
+  ]
+}

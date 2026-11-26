@@ -1,0 +1,112 @@
+{
+  "meta": {
+    "name": "日刻 DayTally",
+    "version": "1.2.12",
+    "prototypeVersion": 12,
+    "prototypeWidth": 350,
+    "deviceWidthDp": 411,
+    "scale": 1.175,
+    "source": "每日刻度APP原型版本1.html"
+  },
+  "colors": {
+    "ink": "#2B2338",
+    "ink2": "#6A6079",
+    "ink3": "#A296B2",
+    "paper": "#FBF8FF",
+    "red": "#D2505C",
+    "redDk": "#B43644",
+    "redWash": "#FBEBED",
+    "purple": "#8B76D9",
+    "purpleDeep": "#6E58BE",
+    "lilac2": "#F3ECFE",
+    "lilac3": "#E9DFFB",
+    "green": "#2E9A6B",
+    "greenWash": "#E7F5EE",
+    "flat": "#8E85A0",
+    "gold": "#F7C325",
+    "goldDeep": "#E0A10C",
+    "goldHi": "#FFDE73",
+    "line": "rgba(120,96,170,.13)",
+    "cardWhite": "#FFFFFF",
+    "phoneFrame": "#16111E"
+  },
+  "typography": {
+    "display": "Nunito",
+    "body": "Noto Sans SC",
+    "fallback": ["PingFang SC", "Microsoft YaHei", "sans-serif"],
+    "roles": {
+      "heroTitle": {"prototypePx": 46, "weight": 800, "lineHeight": 1.06},
+      "pageTitle": {"prototypePx": 25, "weight": 700, "lineHeight": 1.15},
+      "cardValue": {"prototypePx": 38, "weight": 800, "lineHeight": 1},
+      "counterValue": {"prototypePx": 24, "weight": 800, "lineHeight": 1},
+      "cardTitle": {"prototypePx": 15, "weight": 700},
+      "body": {"prototypePx": 12, "weight": 400, "lineHeight": 1.6},
+      "caption": {"prototypePx": 10.5, "weight": 400},
+      "badge": {"prototypePx": 10.5, "weight": 700}
+    }
+  },
+  "radii": {
+    "phone": 46,
+    "sheet": 28,
+    "cardLarge": 26,
+    "counter": 22,
+    "project": 20,
+    "widget": 24,
+    "pill": 999,
+    "iconCircle": 999
+  },
+  "spacing": {
+    "pagePadding": 16,
+    "cardGap": 10,
+    "cardPaddingLarge": [13, 14, 11, 14],
+    "cardPaddingSettings": [16, 15, 12, 15],
+    "sheetMargin": 28,
+    "keyboardGap": 16,
+    "tabbarHeight": 60
+  },
+  "shadows": {
+    "card": "0 10px 28px -18px rgba(74,45,120,.42)",
+    "counter": "0 8px 22px -18px rgba(74,45,120,.4)",
+    "phone": "0 34px 70px -34px rgba(58,28,104,.46), 0 0 0 1px rgba(255,255,255,.55) inset",
+    "button": "0 8px 16px -10px rgba(190,50,70,.8)"
+  },
+  "motion": {
+    "spring": "cubic-bezier(.34,1.56,.64,1)",
+    "ease": "cubic-bezier(.22,.61,.36,1)",
+    "pressCardMs": 180,
+    "pressButtonMs": 160,
+    "numberColorMs": 320,
+    "floatTextMs": 1000,
+    "sheetOpenMs": 260,
+    "pageSwitchMs": 200
+  },
+  "haptics": {
+    "widgetTapMs": 36,
+    "widgetTapAmplitude": "max",
+    "widgetLongPressMs": 20,
+    "widgetLongPressAmplitude": 200,
+    "longPressIntervalMs": 150,
+    "settingsHoldMs": 700
+  },
+  "layout": {
+    "home": {
+      "heightCardFollowedBySpring": 1,
+      "counterGapSprings": 3,
+      "tailSpring": 1,
+      "weekStrip": "周二→周一",
+      "weekStripColumns": 7
+    },
+    "desktop": {
+      "widget1x1Count": 4,
+      "widget4x2Count": 2
+    },
+    "sheet": {
+      "gravity": "center",
+      "imeBehavior": "minimal shift, 16dp gap"
+    }
+  },
+  "tone": {
+    "keywords": ["安静", "克制", "温暖", "触感", "桌面物件", "不游戏化"],
+    "avoid": ["科技蓝", "赛博霓虹", "健身房肌肉", "社交排行", "游戏勋章", "纯黑大面积"]
+  }
+}

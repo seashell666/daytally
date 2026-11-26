@@ -20,6 +20,10 @@ DailyScale/local.properties
 *.ap_
 *.dex
 
+# ---------- 二进制交付物：只走 GitHub Release 资产，不入库 ----------
+PC/*.exe
+*.zip
+
 # ---------- IDE ----------
 .idea/
 *.iml

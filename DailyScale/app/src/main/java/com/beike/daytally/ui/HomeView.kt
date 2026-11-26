@@ -17,7 +17,7 @@ import com.beike.daytally.util.Ui
 
 interface HomeCallback {
     fun gotoProjects()
-    fun openHeightSheet()
+    fun openMuscleEntry()
 }
 
 class HomeView(ctx: Context, val repo: Repo, val sound: Sound, val cb: HomeCallback) :
@@ -111,7 +111,7 @@ class HomeView(ctx: Context, val repo: Repo, val sound: Sound, val cb: HomeCallb
     }
 
     private fun buildHeightCard(): View {
-        val h = repo.metric("height")
+        val h = repo.metric("muscle")
         val hcs = repo.seriesColors(h)
         val hv = repo.valOf(h, repo.todayIdx)
         val card = LinearLayout(context).apply {
@@ -124,7 +124,7 @@ class HomeView(ctx: Context, val repo: Repo, val sound: Sound, val cb: HomeCallb
                 0,
                 148f
             )
-            setOnClickListener { cb.openHeightSheet() }
+            setOnClickListener { cb.openMuscleEntry() }
         }
         val top = LinearLayout(context).apply {
             orientation = HORIZONTAL
@@ -135,7 +135,7 @@ class HomeView(ctx: Context, val repo: Repo, val sound: Sound, val cb: HomeCallb
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
         val tag = TextView(context).apply {
-            text = "身高"
+            text = "肌肉重量"
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f * Ui.S)
             setTextColor(C.FLAT)
             letterSpacing = 0.06f
@@ -161,7 +161,7 @@ class HomeView(ctx: Context, val repo: Repo, val sound: Sound, val cb: HomeCallb
             letterSpacing = -0.025f
         }
         val unit = TextView(context).apply {
-            text = "厘米"
+            text = "公斤"
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f * Ui.S)
             setTextColor(C.INK2)
             letterSpacing = 0.04f

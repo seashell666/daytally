@@ -11,28 +11,31 @@ import android.widget.RemoteViews
 import com.beike.daytally.MainActivity
 import com.beike.daytally.R
 import com.beike.daytally.Repo
+import com.beike.daytally.bodyfat.BodyFatEntryActivity
 import com.beike.daytally.util.C
 
 /**
- * 身高专用 4×2 大卡组件（原型左侧身高大卡）：
- * 显示今日身高 + 周二→周一 7 天条带；
- * 点卡片主体 → 进 App 趋势页的身高统计；
- * 点右上「去记录」→ 打开 App 今天页并直接弹出改身高弹窗（同时起输入法）。
+ * 肌肉重量专用 4×2 大卡组件。
+ *
+ * 类名和布局名继续沿用 HeightWidget/widget_height，是为了让已经放在桌面的旧组件
+ * 在升级后还能原地刷新，不用用户重新添加；显示内容和单位已切换为肌肉重量/公斤。
+ * 点卡片主体 → 进 App 趋势页的肌肉统计；
+ * 点右上「去记录」→ 走日刻的 OKOK 测量入口。
  */
 class HeightWidget : AppWidgetProvider() {
 
     companion object {
         private const val EXTRA_PAGE = "page"
         private const val EXTRA_METRIC = "metric"
-        private const val EXTRA_HEIGHT_SHEET = "height_sheet"
         private val WK = listOf("周日", "周一", "周二", "周三", "周四", "周五", "周六")
         private val W_IDS = intArrayOf(R.id.hw_0, R.id.hw_1, R.id.hw_2, R.id.hw_3, R.id.hw_4, R.id.hw_5, R.id.hw_6)
         private val N_IDS = intArrayOf(R.id.hn_0, R.id.hn_1, R.id.hn_2, R.id.hn_3, R.id.hn_4, R.id.hn_5, R.id.hn_6)
         private val D_IDS = intArrayOf(R.id.hd_0, R.id.hd_1, R.id.hd_2, R.id.hd_3, R.id.hd_4, R.id.hd_5, R.id.hd_6)
 
         fun buildCard(context: Context, repo: Repo): RemoteViews {
-            val h = repo.metric("height")
+            val h = repo.metric("muscle")
             val views = RemoteViews(context.packageName, R.layout.widget_height)
+            views.setTextViewText(R.id.wh_unit, "公斤")
 
             val cs = repo.seriesColors(h)
             val today = repo.rawVal(h, repo.todayIdx)
@@ -70,10 +73,10 @@ class HeightWidget : AppWidgetProvider() {
                 views.setTextColor(D_IDS[k], 0xFFA99FB8.toInt())
             }
 
-            // 点主体：趋势页 · 身高
+            // 点主体：趋势页 · 肌肉重量
             val trendIntent = Intent(context, MainActivity::class.java).apply {
                 putExtra(EXTRA_PAGE, "trend")
-                putExtra(EXTRA_METRIC, "height")
+                putExtra(EXTRA_METRIC, "muscle")
                 setPackage(context.packageName)
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
             }
@@ -83,8 +86,8 @@ class HeightWidget : AppWidgetProvider() {
             )
             views.setOnClickPendingIntent(R.id.wh_root, trendPi)
 
-            // 点「去记录」：直接浮一层输入弹窗（不跳 App 页面）
-            val sheetIntent = Intent(context, com.beike.daytally.HeightInputActivity::class.java).apply {
+            // 点「去记录」：走 OKOK 正常称重入口，测完自动回传体脂和肌肉重量
+            val sheetIntent = Intent(context, BodyFatEntryActivity::class.java).apply {
                 setPackage(context.packageName)
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
             }

@@ -1,6 +1,7 @@
 package com.beike.daytally
 
 import android.content.BroadcastReceiver
+import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.Manifest
@@ -24,6 +25,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import com.beike.daytally.bodyfat.BodyFatEntryActivity
 import com.beike.daytally.ui.HomeCallback
 import com.beike.daytally.ui.HomeView
 import com.beike.daytally.ui.ImePad
@@ -94,7 +96,7 @@ class MainActivity : AppCompatActivity() {
         val content = main.findViewById<FrameLayout>(R.id.content)
         home = HomeView(this, repo, sound, object : HomeCallback {
             override fun gotoProjects() { switchView("projects") }
-            override fun openHeightSheet() { this@MainActivity.openHeightSheet() }
+            override fun openMuscleEntry() { this@MainActivity.openMuscleEntry() }
         })
         trend = TrendView(this, repo, sound, object : TrendCallback {
             override fun gotoHome() = switchView("home")
@@ -213,8 +215,8 @@ class MainActivity : AppCompatActivity() {
             }
             "home" -> {
                 switchView("home")
-                /* 身高大卡的「去记录」：进来就弹身高弹窗（连输入法一起） */
-                if (intent.getBooleanExtra("height_sheet", false)) openHeightSheet()
+                /* 肌肉大卡的「去记录」：打开 OKOK 正常称重流程，不再手动记身高 */
+                if (intent.getBooleanExtra("height_sheet", false)) openMuscleEntry()
             }
         }
     }
@@ -324,90 +326,13 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ---------- 身高记录弹层 ----------
-    private fun openHeightSheet() {
-        sound.sheetOpen()          // 与桌面大卡「去记录」同一手感
-        val h = repo.metric("height")
-        val shell = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            background = getDrawable(R.drawable.bg_sheet)
-            setPadding(Ui.dp(context, 20f), Ui.dp(context, 22f),
-                Ui.dp(context, 20f), Ui.dp(context, 22f))
-        }
-        val title = TextView(this).apply {
-            text = "记录身高"
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f * Ui.S)
-            setTypeface(typeface, android.graphics.Typeface.BOLD)
-            setTextColor(C.INK)
-            setPadding(0, 0, 0, Ui.dp(this@MainActivity, 14f))
-        }
-        val cur = repo.rawVal(h, repo.todayIdx)
-        val et = EditText(this).apply {
-            setText(cur?.let { repo.fmt(it, 1) } ?: "")
-            hint = "0 ~ 227 厘米"
-            inputType = android.text.InputType.TYPE_CLASS_NUMBER or
-                android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f * Ui.S)
-            setTextColor(C.INK)
-            setHintTextColor(C.INK3)
-            background = getDrawable(R.drawable.bg_proj_ic)
-            setPadding(Ui.dp(this@MainActivity, 13f), Ui.dp(this@MainActivity, 11f),
-                Ui.dp(this@MainActivity, 13f), Ui.dp(this@MainActivity, 11f))
-            gravity = Gravity.CENTER
-            setSelectAllOnFocus(true)
-            /* 单行 + 右下角「完成」= 存盘关窗，框里不允许换行 */
-            isSingleLine = true
-            maxLines = 1
-            imeOptions = EditorInfo.IME_ACTION_DONE
-        }
-        val valid = {
-            val s = et.text.toString().trim()
-            val v = s.toDoubleOrNull()
-            s.matches(Regex("""\d{1,3}(\.\d)?""")) && v != null && v in 0.0..227.0
-        }
-        val commit = {
-            repo.setHeight(et.text.toString().trim().toDouble()); sound.save(); home.render()
-        }
-        et.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
-            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
-            override fun afterTextChanged(s: Editable?) {}
-        })
-        et.setOnEditorActionListener { _, a, _ ->
-            if (a == EditorInfo.IME_ACTION_DONE) { if (valid()) commit(); closeHeight(); true } else false
-        }
-        shell.addView(title); shell.addView(et)
-
-        val mask = View(this).apply {
-            background = getDrawable(R.drawable.bg_mask)
-            setOnClickListener { if (valid()) commit(); closeHeight() }
-        }
-        val box = FrameLayout(this).apply {
-            addView(shell)
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT,
-                Gravity.CENTER
-            ).apply { setMargins(Ui.dp(this@MainActivity, 28f), Ui.dp(this@MainActivity, 28f),
-                Ui.dp(this@MainActivity, 28f), Ui.dp(this@MainActivity, 28f)) }
-        }
-        overlay.removeAllViews()
-        overlay.addView(mask); overlay.addView(box)
-        overlay.visibility = View.VISIBLE
-        ImePad.bind(overlay, box, Ui.dp(this, 16f))
-        /* 弹窗一出来就聚焦 + 起键盘（豆包输入法会按 inputType 直接出九宫格数字盘） */
-        et.requestFocus()
-        et.post {
-            val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE)
-                    as android.view.inputmethod.InputMethodManager
-            imm.showSoftInput(et, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
-        }
-    }
-
-    private fun closeHeight() {
-        val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE)
-                as android.view.inputmethod.InputMethodManager
-        imm.hideSoftInputFromWindow(overlay.windowToken, 0)
-        overlay.visibility = View.GONE
-        overlay.removeAllViews()
+    // ---------- 肌肉重量 / 体脂率：统一走 OKOK 正常测量 ----------
+    private fun openMuscleEntry() {
+        sound.sheetOpen()
+        startActivity(
+            Intent(this, BodyFatEntryActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+        )
     }
 }

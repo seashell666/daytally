@@ -22,7 +22,8 @@ interface TrendCallback { fun gotoHome() }
 class TrendView(ctx: Context, val repo: Repo, val sound: Sound, val cb: TrendCallback) :
     LinearLayout(ctx) {
 
-    private var pos = 1
+    /* 1.4.0 的主指标是肌肉重量；第一次进趋势页默认看肌肉，不再默认落在俯卧撑。 */
+    private var pos = 0
     private lateinit var segRow: LinearLayout
     private lateinit var stats: LinearLayout
     private lateinit var chart: ChartView
@@ -152,7 +153,7 @@ class TrendView(ctx: Context, val repo: Repo, val sound: Sound, val cb: TrendCal
             val mm = repo.metric(key)
             val on = i == pos
             val b = TextView(context).apply {
-                text = mm.name
+                text = if (key == "muscle") "肌肉" else mm.name
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f * Ui.S)
                 gravity = Gravity.CENTER
                 setPadding(0, dp(7f), 0, dp(7f))
@@ -239,8 +240,8 @@ class TrendView(ctx: Context, val repo: Repo, val sound: Sound, val cb: TrendCal
 
     private fun renderStats(m: Metric) {
         stats.removeAllViews()
-        // 原型 trendUnit：身高=厘米，计数项目一律「组」（不是每组单位）
-        val trendUnit = if (m.per == 0) "厘米" else "组"
+        // 原型 trendUnit：肌肉=公斤，计数项目一律「组」（不是每组单位）
+        val trendUnit = if (m.per == 0) m.unit else "组"
         var maxV: Double? = null; var maxD = ""
         var minV: Double? = null; var minD = ""
         for (i in 0 until Repo.N) {
@@ -272,7 +273,7 @@ class TrendView(ctx: Context, val repo: Repo, val sound: Sound, val cb: TrendCal
     private fun renderDetail(m: Metric) {
         detail.removeAllViews()
         val cs = repo.seriesColors(m)
-        val unit = if (m.per == 0) "厘米" else "组"
+        val unit = if (m.per == 0) m.unit else "组"
         for (k in repo.todayIdx downTo 0) {
             val raw = repo.rawVal(m, k)
             val row = LinearLayout(context).apply {

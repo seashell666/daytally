@@ -2,6 +2,7 @@ package com.beike.daytally
 
 import android.content.Context
 import com.beike.daytally.model.Metric
+import com.beike.daytally.muscle.MusclePolicy
 import com.beike.daytally.sync.SyncConfig
 import com.beike.daytally.sync.SyncStore
 import com.beike.daytally.util.C
@@ -25,7 +26,8 @@ class Repo private constructor(private val ctx: Context) {
         private const val FILE = "daytally.json"
     }
 
-    val order = listOf("height", "push", "horse", "pullup", "custom")
+    /* 旧 height 数据不再参与界面和写入；只作为隐藏历史保留，避免厘米被误当成公斤。 */
+    val order = listOf("muscle", "push", "horse", "pullup", "custom")
     val metrics = LinkedHashMap<String, Metric>()
     var days: List<LocalDate> = (N - 1 downTo 0).map { LocalDate.now().minusDays(it.toLong()) }
         private set
@@ -55,7 +57,7 @@ class Repo private constructor(private val ctx: Context) {
     private fun defaults(): List<Metric> {
         val empty = mutableMapOf<String, Double>()
         return listOf(
-            Metric("height", "身高", "厘米", 1, 0, 0, 0, empty),
+            Metric("muscle", "肌肉重量", "公斤", 1, 0, 0, 0, empty),
             Metric("push", "俯卧撑", "个", 0, 12, 10000, 32, mutableMapOf()),
             Metric("horse", "蹲马步", "分钟", 0, 11, 10000, 32, mutableMapOf()),
             Metric("pullup", "引体向上", "个", 0, 12, 10000, 32, mutableMapOf()),
@@ -71,16 +73,9 @@ class Repo private constructor(private val ctx: Context) {
         val horse = List(N) { ri(1, 4) }
         val pullup = List(N) { ri(1, 5) }
         val custom = List(N) { ri(1, 6) }
-        val height = mutableListOf<Double?>()
-        var hh = 173.4
-        for (i in 0 until N) {
-            if (i == N - 1) { height.add(null); break }
-            hh = Math.round((hh + (rnd.nextDouble() - 0.5) * 0.5) * 10) / 10.0
-            hh = hh.coerceIn(172.0, 174.5)
-            height.add(hh)
-        }
+        /* 肌肉重量只来自真实 OKOK 测量，不再灌演示曲线。 */
         return mapOf("push" to push, "horse" to horse, "pullup" to pullup,
-            "custom" to custom, "height" to height)
+            "custom" to custom)
     }
 
     // ---------- 持久化 ----------
@@ -108,21 +103,32 @@ class Repo private constructor(private val ctx: Context) {
         val root = JSONObject(file.readText(Charsets.UTF_8))
         val mj = root.optJSONObject("metrics") ?: JSONObject()
         defs.forEach { d ->
-            val j = mj.optJSONObject(d.key)
-            if (j == null) { metrics[d.key] = d; return@forEach }
-            val data = mutableMapOf<String, Double>()
-            j.optJSONObject("data")?.let { dj ->
-                dj.keys().forEach { k -> data[k] = dj.getDouble(k) }
-            }
-            metrics[d.key] = d.copy(
-                name = j.optString("name", d.name),
-                unit = j.optString("unit", d.unit),
-                per = j.optInt("per", d.per),
-                goal = j.optInt("goal", d.goal),
-                maxGroups = j.optInt("maxGroups", d.maxGroups),
-                data = data
+            metrics[d.key] = readMetric(mj.optJSONObject(d.key), d)
+        }
+        /* 兼容旧版：height 字段完整保留在本地文件里，但不再进入 order、不再显示或写入。
+           这样旧厘米历史不会被当成公斤画进肌肉趋势。 */
+        mj.optJSONObject("height")?.let { legacy ->
+            metrics["height"] = readMetric(
+                legacy,
+                Metric("height", "身高", "厘米", 1, 0, 0, 0, mutableMapOf())
             )
         }
+    }
+
+    private fun readMetric(j: JSONObject?, d: Metric): Metric {
+        if (j == null) return d
+        val data = mutableMapOf<String, Double>()
+        j.optJSONObject("data")?.let { dj ->
+            dj.keys().forEach { k -> runCatching { data[k] = dj.getDouble(k) } }
+        }
+        return d.copy(
+            name = j.optString("name", d.name),
+            unit = j.optString("unit", d.unit),
+            per = j.optInt("per", d.per),
+            goal = j.optInt("goal", d.goal),
+            maxGroups = j.optInt("maxGroups", d.maxGroups),
+            data = data
+        )
     }
 
     @Synchronized
@@ -222,13 +228,16 @@ class Repo private constructor(private val ctx: Context) {
         save()
     }
 
-    /** 身高是“设置值”不是“加一组”，同步时按动作时间取最新，不和计数事件相加 */
+    /** 肌肉重量是“设置值”，按测量发生日记录；同步时按动作时间取最新，不和计数事件相加。 */
     @Synchronized
-    fun setHeight(value: Double) {
-        val day = todayStr()
-        SyncStore.recordSet(ctx, "height", day, value)
-        metric("height").data[day] = value
+    fun setMuscle(value: Double, measuredAt: Long = System.currentTimeMillis()): Boolean {
+        if (!MusclePolicy.isValidValue(value)) return false
+        val day = MusclePolicy.dayKey(measuredAt)
+        val rounded = MusclePolicy.round1(value)
+        SyncStore.recordSet(ctx, MusclePolicy.METRIC, day, rounded)
+        metric(MusclePolicy.METRIC).data[day] = rounded
         save()
+        return true
     }
 
     /** 项目名称/单位/每组/目标/纵轴上限改完后记一条配置动作 */

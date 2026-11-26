@@ -56,12 +56,12 @@ class ChartView @JvmOverloads constructor(
 
     private fun axis(): Pair<Double, Double> {
         val m = metric!!
-        return if (m.per == 0) 172.0 to 183.0 else 0.0 to m.maxGroups.toDouble()
+        return if (m.per == 0) 47.0 to 72.0 else 0.0 to m.maxGroups.toDouble()
     }
 
     private fun ticks(lo: Double, hi: Double): List<Double> {
         val m = metric!!
-        return if (m.per == 0) listOf(172.0, 175.0, 178.0, 181.0, 183.0)
+        return if (m.per == 0) listOf(47.0, 53.0, 59.0, 65.0, 72.0)
         else (0..4).map { lo + (hi - lo) * it / 4 }
     }
 
@@ -104,7 +104,7 @@ class ChartView @JvmOverloads constructor(
             canvas.drawText(label, x0 - 5f * scale, yy + 3f * scale, tickPaint)
         }
 
-        // 数据点（原始值：身高=厘米，计数=组数）
+        // 数据点（原始值：肌肉=公斤，计数=组数）
         val pts = mutableListOf<FloatArray>()
         for (i in 0 until Repo.N) {
             val v = repo.rawVal(m, i) ?: continue

@@ -8,8 +8,8 @@
 <link rel="stylesheet" href="https://miaoda.feishu.cn/fonts/css2?family=Nunito:wght@500;600;700;800&family=Noto+Sans+SC:wght@300;400;500;700&display=swap">
 <style>
 /* ============================================================
-   每日复刻 · 设计交付稿 v4
-   外框是"展板"，里面三台手机是真正可点的 App 原型
+   每日复刻 · 设计交付稿 v12
+   与日刻 1.2.12 真机对齐；外框是“展板”，里面三台手机是真正可点的 App 原型
    ============================================================ */
 :root{
   --ink:#2B2338;
@@ -315,14 +315,25 @@ body::before{
 .switch.on .track::after{transform:translateX(16px)}
 
 /* ---------- 隐藏设置页（长按项目标题区或底栏「项目」0.7 秒进入，不给底栏入口） ---------- */
-.set-body{flex:1;padding:4px 16px 0;display:flex;flex-direction:column;min-height:0}
+.set-body{flex:1;padding:4px 16px 0;display:flex;flex-direction:column;gap:10px;min-height:0}
 .set-row{border-radius:18px;padding:13px 14px;display:flex;align-items:center;gap:12px;background:linear-gradient(152deg,#FCFBFF,#F2EBFE 58%,#E8DFFB);box-shadow:var(--shadow-card);cursor:pointer;transition:transform .16s var(--spring)}
 .set-row:active{transform:scale(.985)}
 .set-row .set-ic{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;flex:none;background:rgba(139,118,217,.16);color:var(--purple-deep)}
 .set-row .set-t{flex:1;min-width:0}
-.set-row .set-nm{font-size:14px;font-weight:600}
+.set-row .set-nm{font-size:14px;font-weight:600;display:flex;align-items:center;gap:7px}
 .set-row .set-ds{font-size:11px;color:var(--ink3);margin-top:3px;line-height:1.45}
+.set-row .set-chev{font-size:22px;line-height:1;color:#B3A7C8;flex:none}
+.sync-badge{font-size:10px;font-weight:600;padding:3px 7px;border-radius:999px;letter-spacing:.02em}
+.sync-badge.ok{color:#2E9A6B;background:rgba(46,154,107,.11);border:1px solid rgba(46,154,107,.18)}
+.sync-badge.off{color:var(--ink3);background:rgba(120,96,170,.08);border:1px solid rgba(120,96,170,.12)}
 .set-ver{margin-top:auto;padding:18px 0 20px;text-align:center;font-size:11px;color:var(--ink3);letter-spacing:.04em}
+
+/* 同步服务弹层（1.2.12 真机同款字段：IP / 端口 / 访问令牌） */
+.sync-form{display:flex;flex-direction:column;margin-top:2px}
+.sync-form .custom-field{margin-top:10px}
+.sync-form .custom-field input{font-size:14px;padding:10px 12px}
+.sync-save{width:100%;border:0;border-radius:16px;padding:13px 0;margin-top:14px;background:linear-gradient(180deg,#DE6572,#C8414E);color:#fff;font-family:var(--cn);font-size:14px;font-weight:600;letter-spacing:.04em;cursor:pointer;box-shadow:0 12px 24px -14px rgba(190,50,70,.8);transition:transform .16s var(--spring)}
+.sync-save:active{transform:scale(.97)}
 
 @media (max-width:1200px){
   .stage{grid-template-columns:repeat(2,368px);gap:34px}
@@ -346,7 +357,7 @@ body::before{
 
   <!-- ===== 展板头部 ===== -->
   <header class="masthead">
-    <div class="kicker"><span class="dot"></span>设计交付 · 第 11 版原型<span class="sep"></span>确认后进入 Kotlin 开发</div>
+    <div class="kicker"><span class="dot"></span>设计交付 · 第 12 版原型<span class="sep"></span>已与 1.2.12 真机对齐</div>
     <div class="head-row">
       <div class="title-block">
         <div class="appicon"><img src="assets/icon-a.png" alt="日刻图标"></div>
@@ -357,7 +368,7 @@ body::before{
       </div>
       <div class="head-meta">
         <span class="chip"><b>Android</b> · Kotlin</span>
-        <span class="chip">单 Activity · Compose</span>
+        <span class="chip">单 Activity · 原生 View</span>
         <span class="chip" id="ver-chip">2026.11.18</span>
       </div>
     </div>
@@ -365,7 +376,7 @@ body::before{
     <div class="lead">
       <div class="lead-intro">
         三件事：<strong>记身高</strong>（系统输入法手动填，精确到 0.1 厘米）、<strong>记组数</strong>（点一下加一整组，长按退一组）、<strong>看趋势</strong>（桌面组件直接点进来，一个月数据全在图上）。
-        下面三台手机是能真点的原型，不是图片。
+        1.2.12 还加了两台手机的实时同步：一台在桌面点一下，另一台不打开 App，约 1 秒跟着变。下面三台手机是能真点的原型，不是图片。
       </div>
       <div class="lead-cell">
         <span class="n">01</span>
@@ -487,8 +498,8 @@ body::before{
                   <span style="width:36px"></span>
                 </div>
                 <div class="seg" data-seg>
-                  <button class="on" data-act="seg" data-i="0">身高</button>
-                  <button data-act="seg" data-i="1">俯卧撑</button>
+                  <button data-act="seg" data-i="0">身高</button>
+                  <button class="on" data-act="seg" data-i="1">俯卧撑</button>
                   <button data-act="seg" data-i="2">蹲马步</button>
                   <button data-act="seg" data-i="3">引体向上</button>
                   <button data-act="seg" data-i="4">自定义</button>
@@ -532,12 +543,23 @@ body::before{
                     <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="3.6" width="16" height="16.8" rx="4.5"/><path d="M8.4 9.2h7.2M8.4 13.6h4.6"/></svg>
                   </div>
                   <div class="set-t">
-                    <div class="set-nm">桌面长按接管</div>
+                    <div class="set-nm">桌面长按接管 <span class="sync-badge ok">已接上</span></div>
                     <div class="set-ds">关掉后桌面方块恢复原生长按，可拖动、可移除</div>
                   </div>
                   <div class="switch on" id="sw-hook"><span class="track"></span></div>
                 </div>
-                <div class="set-ver">日刻 v1.2.7 · 预览版</div>
+                <!-- 1.2.12 新增：同步服务卡（真机已连接状态） -->
+                <div class="set-row" data-act="open-sync">
+                  <div class="set-ic">
+                    <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M20 11a8 8 0 0 0-14.3-4.8M4 13a8 8 0 0 0 14.3 4.8"/><path d="M6 3v3.2h3.2M18 21v-3.2h-3.2"/></svg>
+                  </div>
+                  <div class="set-t">
+                    <div class="set-nm">同步服务 <span class="sync-badge ok" data-sync-status>已连接</span></div>
+                    <div class="set-ds" data-sync-sub>192.168.1.50:8787 · 点一下修改</div>
+                  </div>
+                  <div class="set-chev">›</div>
+                </div>
+                <div class="set-ver">日刻 v1.2.12 · 预览版</div>
               </div>
             </div>
 
@@ -611,6 +633,29 @@ body::before{
                 </div>
               </div>
             </div>
+
+            <!-- 1.2.12 同步服务弹层（IP / 端口 / 访问令牌，保存后显示已连接） -->
+            <div class="scrim" data-act="close-sync" data-sync-scrim></div>
+            <div class="sheet" data-sync-sheet>
+              <div class="grab"></div>
+              <div class="st">同步服务</div>
+              <div class="sd">两台手机填同一个局域网地址和 Token；不填也能用，数据只留本机</div>
+              <div class="sync-form">
+                <div class="custom-field">
+                  <label>IP / 主机</label>
+                  <input type="text" data-sync-host value="192.168.1.50" placeholder="192.168.1.50">
+                </div>
+                <div class="custom-field">
+                  <label>端口</label>
+                  <input type="text" inputmode="numeric" data-sync-port value="8787" placeholder="8787">
+                </div>
+                <div class="custom-field">
+                  <label>访问令牌</label>
+                  <input type="password" data-sync-token value="daytally-demo-token" placeholder="32 位 Token">
+                </div>
+                <button type="button" class="sync-save" data-act="save-sync">保存并连接</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -636,8 +681,8 @@ body::before{
                 <span style="width:36px"></span>
               </div>
               <div class="seg" data-seg>
-                <button class="on" data-act="seg" data-i="0">身高</button>
-                <button data-act="seg" data-i="1">俯卧撑</button>
+                <button data-act="seg" data-i="0">身高</button>
+                <button class="on" data-act="seg" data-i="1">俯卧撑</button>
                 <button data-act="seg" data-i="2">蹲马步</button>
                 <button data-act="seg" data-i="3">引体向上</button>
                 <button data-act="seg" data-i="4">自定义</button>
@@ -697,7 +742,8 @@ const rnd = mulberry32(20261116);
 function ri(a,b){return Math.floor(rnd()*(b-a+1))+a;}
 
 const N = 30;
-const baseNow = new Date();                       // 今天 = 打开原型这一天（条带周期永远周二→周一）
+/* 固定到 2026-11-22，和 1.2.12 真机截图同一天；条带周期永远周二→周一 */
+const baseNow = new Date(2026, 10, 22);
 const dateObjs = [];
 for(let i = N - 1; i >= 0; i--){ const d = new Date(baseNow); d.setDate(d.getDate() - i); dateObjs.push(d); }
 const pad2 = x => String(x).padStart(2, '0');
@@ -706,28 +752,36 @@ const WK = ['周日','周一','周二','周三','周四','周五','周六'];
 const weeks = dateObjs.map(d => WK[d.getDay()]);
 const LAST = N - 1;
 
-/* 计数数据（组数） */
-const pushData   = Array.from({length:N}, () => ri(2, 8));
-const horseData  = Array.from({length:N}, () => ri(1, 4));
-const pullupData = Array.from({length:N}, () => ri(1, 5));
-const customData = Array.from({length:N}, () => ri(1, 6));
-/* 身高：带连续性的一位小数，今天（最后一天）留空 */
-let hh = 173.4;
-const heightData = [];
-for(let i = 0; i < N; i++){
-  if(i === LAST){ heightData.push(null); break; }
-  hh = Math.round((hh + (rnd() - 0.5) * 0.5) * 10) / 10;
-  hh = Math.min(174.5, Math.max(172.0, hh));
-  heightData.push(hh);
-}
+/* 计数数据（组数）：最后 8 天与 1.2.12 真机一致，30 天总和与项目页累计一致 */
+const pushData = [
+  4,5,4,5,2,4,5,4,6,5,4,5,4,6,5,4,5,4,6,5,8,7,
+  8,3,8,5,8,6,40,6
+];
+const horseData = [
+  2,3,2,3,2,2,3,2,2,3,2,2,3,2,2,3,2,2,3,2,2,1,
+  6,5,3,4,1,4,59,3
+];
+const pullupData = [
+  3,3,4,2,3,4,2,3,3,4,2,3,3,4,2,3,3,4,2,3,3,3,
+  4,3,2,3,4,2,24,1
+];
+const customData = [
+  4,5,3,4,2,5,3,4,3,5,4,3,2,5,3,4,3,5,2,4,4,3,
+  5,4,4,5,3,6,37,2
+];
+/* 身高：带连续性的一位小数；11/20 空档，今天 175.0 */
+const heightData = [
+  172.2,172.4,172.3,172.6,172.5,172.8,172.7,172.9,172.8,173.0,
+  172.9,173.2,173.1,173.3,173.2,173.4,173.1,173.0,172.9,173.2,
+  173.4,173.2,173.1,173.1,173.1,173.3,173.4,null,174.0,175.0
+];
 
 const S = {
-  sfx: true, view: 'home', seg: 0, flash: null,
-  deskWeek: 'push', editingMax: null, confirmReset: null, customOpen: false,
+  sfx: true, view: 'home', seg: 1, deskWeek: 'horse', flash: null, editingMax: null, confirmReset: null, customOpen: false,
   days, weeks,
   order: ['height','push','horse','pullup','custom'],
   m: {
-    height:{ key:'height', name:'身高',     unit:'厘米', dec:1, per:0,  goal:0,     maxGroups:0, data:heightData },
+    height:{ key:'height', name:'身高',     unit:'厘米', dec:1, per:0,  goal:0,     maxGroups:0, data:heightData, recordedDays:31 },
     push:  { key:'push',   name:'俯卧撑',   unit:'个',   dec:0, per:12, goal:10000, maxGroups:32, data:pushData },
     horse: { key:'horse',  name:'蹲马步',   unit:'分钟', dec:0, per:11, goal:10000, maxGroups:32, data:horseData },
     pullup:{ key:'pullup', name:'引体向上', unit:'个',   dec:0, per:12, goal:10000, maxGroups:32, data:pullupData },
@@ -1116,7 +1170,7 @@ function renderProjects(){
       <div class="ic">${icons[m.key]}</div>
       <div class="t">
         <div class="nm">${m.name}</div>
-        <div class="meta">已记录 <b>${m.data.filter(x => x !== null).length}</b> 天 · 精确到 0.1 ${m.unit}</div>
+        <div class="meta">已记录 <b>${m.recordedDays || m.data.filter(x => x !== null).length}</b> 天 · 精确到 0.1 ${m.unit}</div>
         <div class="meta" style="margin-top:3px">趋势纵轴固定 <b>172 ~ 183 厘米</b></div>
       </div>
     </div>`;
@@ -1237,6 +1291,34 @@ function closeSheet(screen){
   clearTimeout(heightDebounce);
   screen.querySelector('[data-sheet]').classList.remove('open');
   screen.querySelector('.scrim').classList.remove('open');
+}
+
+/* 1.2.12 同步服务：设置页第二张卡打开弹层，保存后回写状态 */
+function openSyncSheet(screen){
+  const sheet = screen.querySelector('[data-sync-sheet]');
+  const scrim = screen.querySelector('[data-sync-scrim]');
+  if(!sheet || !scrim) return;
+  sheet.classList.add('open');
+  scrim.classList.add('open');
+  haptic(8);
+}
+function closeSyncSheet(screen){
+  const sheet = screen.querySelector('[data-sync-sheet]');
+  const scrim = screen.querySelector('[data-sync-scrim]');
+  if(sheet) sheet.classList.remove('open');
+  if(scrim) scrim.classList.remove('open');
+}
+function saveSync(screen){
+  const host = screen.querySelector('[data-sync-host]')?.value.trim();
+  const port = screen.querySelector('[data-sync-port]')?.value.trim() || '8787';
+  const token = screen.querySelector('[data-sync-token]')?.value.trim();
+  if(!host || !token) return;
+  const sub = screen.querySelector('[data-sync-sub]');
+  const badge = screen.querySelector('[data-sync-status]');
+  if(sub) sub.textContent = host + ':' + port + ' · 点一下修改';
+  if(badge){ badge.textContent = '已连接'; badge.className = 'sync-badge ok'; }
+  closeSyncSheet(screen);
+  haptic(14); beep(880, .08, .12);
 }
 function saveHeight(screen){
   const input = screen.querySelector('[data-height-input]');
@@ -1556,6 +1638,9 @@ document.addEventListener('click', e => {
     S.hook = on;
     haptic(10); beep(988, .07, .12);
   }
+  else if(act === 'open-sync'){ openSyncSheet(screen); }
+  else if(act === 'close-sync'){ closeSyncSheet(screen); }
+  else if(act === 'save-sync'){ saveSync(screen); }
   else if(act === 'close-edit'){ dismissEdit(screen); }
   else if(act === 'unit-个' || act === 'unit-招' || act === 'unit-分钟'){
     el.closest('.unit-switch').querySelectorAll('button')

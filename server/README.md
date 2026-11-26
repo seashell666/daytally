@@ -11,7 +11,7 @@
 
 如果拿最后同步的总数覆盖，就会丢掉其中一台的增量。这里把每次加/减都记成一条带时间戳和唯一 id 的动作，服务端求和；所以最终是 4 组，不是 3 组或 1 组。
 
-1.2.12 起，服务端还负责**实时通知**：任何一次写入成功后，通过 SSE 把 `change` 推给所有在线手机；另一台手机收到就拉一次快照并刷新桌面组件。
+1.4.0 起，服务端新增 `muscle`（肌肉重量，公斤）设置值：旧 `height` 继续保留做历史兼容，新客户端只读写 `muscle`；服务端仍负责实时通知和独立体脂记录。体脂率单独存表、单独同步，不会混进肌肉重量或四个计数项目。
 
 ## 目录
 
@@ -39,6 +39,7 @@ curl http://127.0.0.1:8787/health
 - `GET /health`：健康检查，不需要 Token。
 - `GET /api/v1/snapshot`：读取当前权威快照，需要 Bearer Token。
 - `POST /api/v1/sync`：客户端推事件 + 拉快照，需要 Bearer Token。
+- `POST /api/v1/admin/clear-data`：需要 Bearer Token，body `{"confirm":"CLEAR_DATA"}`；物理删除事件、归零记录和体脂记录，保留所有项目配置。
 - `GET /api/v1/stream`：SSE 长连接，需要 Bearer Token。连上先收 `event: change`；服务端每次写入成功后推新的 `event: change`；25 秒无变化发一行 `: ping` 心跳。
 
 验证长连接（另开一个终端，改完数据看它是否立刻打印 `event: change`）：
@@ -54,7 +55,7 @@ curl -N -H "Authorization: Bearer $TOKEN" \
 {
   "clientId": "phone-a-uuid",
   "deviceName": "Xiaomi 11",
-  "appVersion": "1.2.12",
+  "appVersion": "1.4.0",
   "seed": true,
   "snapshot": {
     "metrics": {
@@ -76,10 +77,24 @@ curl -N -H "Authorization: Bearer $TOKEN" \
       "kind": "add",
       "occurredAt": 1763700000000
     }
-  ]
+  ],
+  "bodyFatRecords": [
+    {
+      "recordId": "bf-uuid",
+      "metricType": "body_fat",
+      "value": 22.3,
+      "unit": "%",
+      "measuredAt": 1763700000000,
+      "source": "okok-manual",
+      "deviceId": "server-seed",
+      "createdAt": 1763700000000,
+      "updatedAt": 1763700000000
+    }
+  ],
+  "bodyFatSnapshot": []
 }
 ```
-（实际请求包含全部 5 个项目；上面只截了 `push` 方便看结构。）
+（实际请求会带全部项目指标，包含兼容用的旧 `height`；上面只截了 `push` 方便看结构。）
 
 返回：
 
@@ -87,24 +102,33 @@ curl -N -H "Authorization: Bearer $TOKEN" \
 {
   "ok": true,
   "seeded": false,
-  "version": "1.2.12",
+  "version": "1.3.0",
   "revision": 123,
   "serverTime": 1763700000000,
   "acked": ["event-uuid"],
   "metrics": {
     "push": {"name": "俯卧撑", "unit": "个", "per": 12, "goal": 10000, "maxGroups": 32,
              "data": {"2026-11-21": 19}}
-  }
+  },
+  "bodyFatRecords": [
+    {"recordId": "bf-uuid", "metricType": "body_fat", "value": 22.3, "unit": "%",
+     "measuredAt": 1763700000000, "source": "okok-manual", "deviceId": "server-seed",
+     "createdAt": 1763700000000, "updatedAt": 1763700000000}
+  ],
+  "bodyFatAcked": ["bf-uuid"],
+  "bodyFatSupported": true,
+  "bodyFatClearAt": 0
 }
 ```
 
 ## 合并规则
 
 - `add` / `remove`：按事件求和；同一个 `id` 只算一次。
-- `set`（身高）：按 `occurredAt` 取最新。
+- `set`（身高/肌肉重量）：按 `occurredAt` 取最新；旧 `height` 仅做兼容，新客户端只写 `muscle`。
 - `config`：按 `occurredAt` 取最新配置。
 - `reset`：记一个截止时间，早于它的事件不再计入。
 - 第一次连接：服务端空库时，客户端快照作为基线播种；服务端已有数据时，只拉取，不重复播种。这样第二台旧手机不会把自己的旧历史再加一遍。
+- 体脂记录：按 `recordId` 合并；同一条记录只有 `updatedAt` 更新才覆盖，同一测量日的多次测量全部保留。旧服务端忽略 `bodyFatRecords`，旧客户端也不会因为新字段整体失败。
 
 ## 运维
 

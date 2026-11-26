@@ -3,5 +3,6 @@
     <string-array name="xposed_scope">
         <item>com.miui.home</item>
         <item>com.android.launcher3</item>
+        <item>com.chipsea.btcontrol</item>
     </string-array>
 </resources>

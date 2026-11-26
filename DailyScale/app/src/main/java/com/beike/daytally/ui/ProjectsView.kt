@@ -222,7 +222,7 @@ class ProjectsView(
     }
 
     private fun iconRes(key: String) = when (key) {
-        "height" -> R.drawable.ic_proj_height
+        "muscle" -> R.drawable.ic_proj_height
         "push" -> R.drawable.ic_proj_push
         "horse" -> R.drawable.ic_proj_horse
         "pullup" -> R.drawable.ic_proj_pullup
@@ -321,7 +321,7 @@ class ProjectsView(
             ), hi)
             val line2 = spanMeta(listOf(
                 "趋势纵轴固定 " to false,
-                "172 ~ 183 厘米" to true
+                "47 ~ 72 公斤" to true
             ), hi)
             info.addView(metaView(line1, dp(4f), base))
             info.addView(metaView(line2, dp(3f), base))

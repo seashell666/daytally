@@ -9,6 +9,8 @@ import android.os.SystemClock
 import android.util.Log
 import com.beike.daytally.BuildConfig
 import com.beike.daytally.Repo
+import com.beike.daytally.bodyfat.BodyFatRecord
+import com.beike.daytally.bodyfat.BodyFatStore
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
@@ -166,6 +168,9 @@ object SyncManager {
                     .put("seed", true)
                     .put("snapshot", SyncStore.snapshot(repo))
                     .put("events", pending)
+                    // 旧服务端会忽略这两个顶层字段：不会让原来的五项目同步失败。
+                    .put("bodyFatRecords", BodyFatStore.outboxJson(ctx))
+                    .put("bodyFatSnapshot", BodyFatStore.snapshotJson(ctx))
             }
 
             val resp = post(cfg, body)
@@ -177,6 +182,13 @@ object SyncManager {
                 if (list.isEmpty()) sentIds else list
             }
             val metrics = resp.optJSONObject("metrics")
+            val bodyFatSupported = resp.has("bodyFatRecords")
+            val bodyFatRemote = if (bodyFatSupported) {
+                parseBodyFatRecords(resp.optJSONArray("bodyFatRecords"))
+            } else {
+                emptyList()
+            }
+            val bodyFatClearAt = resp.optLong("bodyFatClearAt", 0L)
 
             main.post {
                 if (!SyncConfig.same(ctx, cfg)) {
@@ -185,6 +197,9 @@ object SyncManager {
                 }
                 runCatching {
                     if (metrics != null) repo.applyServerSnapshot(metrics)
+                    if (bodyFatSupported) {
+                        BodyFatStore.applyServer(ctx, bodyFatRemote, bodyFatClearAt)
+                    }
                     SyncStore.ack(ctx, acked)
                     SyncStore.setInitialized(ctx, true)
                     SyncStore.setLastSyncAt(ctx, System.currentTimeMillis())
@@ -231,6 +246,17 @@ object SyncManager {
         if (a == null) return emptyList()
         val out = ArrayList<String>(a.length())
         for (i in 0 until a.length()) a.optString(i)?.takeIf { it.isNotBlank() }?.let { out.add(it) }
+        return out
+    }
+
+    private fun parseBodyFatRecords(a: JSONArray?): List<BodyFatRecord> {
+        if (a == null) return emptyList()
+        val out = ArrayList<BodyFatRecord>(a.length())
+        for (i in 0 until a.length()) {
+            a.optJSONObject(i)?.let { raw ->
+                BodyFatRecord.fromJson(raw)?.let { out.add(it) }
+            }
+        }
         return out
     }
 }

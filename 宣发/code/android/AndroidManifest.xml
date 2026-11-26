@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:usesCleartextTraffic="true"
+        android:theme="@style/Theme.DayTally">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".HeightInputActivity"
+            android:exported="false"
+            android:theme="@style/Theme.DayTally.Transparent"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance" />
+
+        <!-- 开发预览：ad hoc 启动核对 4×2 大卡渲染 -->
+        <activity
+            android:name=".WidgetPreviewActivity"
+            android:exported="false"
+            android:theme="@style/Theme.DayTally"
+            android:excludeFromRecents="true" />
+
+        <!-- 实时同步长连接：后台保持一条 SSE，有变化时直接刷新桌面组件 -->
+        <service
+            android:name=".sync.SyncPushService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <receiver
+            android:name=".sync.BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".widget.PushWidget"
+            android:exported="true"
+            android:label="俯卧撑 · 组件">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_tile_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.HorseWidget"
+            android:exported="true"
+            android:label="蹲马步 · 组件">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_tile_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.PullupWidget"
+            android:exported="true"
+            android:label="引体向上 · 组件">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_tile_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.CustomWidget"
+            android:exported="true"
+            android:label="自定义 · 组件">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_tile_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.WeekWidget"
+            android:exported="true"
+            android:label="日刻 · 大卡">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_week_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.HeightWidget"
+            android:exported="true"
+            android:label="身高 · 大卡">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_height_info" />
+        </receiver>
+
+        <!-- 桌面钩子心跳：设置页据此判断“桌面长按到底接没接上” -->
+        <receiver
+            android:name=".HookStateReceiver"
+            android:exported="true" />
+
+        <!-- Vector / LSPosed 模块声明：装同一个 APK，在框架里勾选即可 -->
+        <meta-data
+            android:name="xposedmodule"
+            android:value="true" />
+        <meta-data
+            android:name="xposeddescription"
+            android:value="日刻桌面方块：长按直接退一组（需在 Vector 中启用本模块）" />
+        <meta-data
+            android:name="xposedminversion"
+            android:value="82" />
+        <!-- 推荐作用域：让 Vector 优先把系统桌面列为推荐应用，少一步手搜 -->
+        <meta-data
+            android:name="xposedscope"
+            android:resource="@array/xposed_scope" />
+    </application>
+</manifest>

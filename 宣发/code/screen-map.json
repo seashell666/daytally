@@ -1,0 +1,160 @@
+{
+  "product": "日刻 DayTally",
+  "version": "1.2.12",
+  "designBase": "prototype/daytally-prototype-v12.html",
+  "global": {
+    "platform": "Android",
+    "navigation": ["今天", "趋势", "项目"],
+    "tabbar": {
+      "height": 60,
+      "items": ["今天", "趋势", "项目"],
+      "tap": "switch page",
+      "doubleTap": "back to 今天",
+      "projectLongPress": "0.7s → settings"
+    },
+    "gesture": {
+      "settingsHold": "0.7s",
+      "widgetAdd": "tap",
+      "widgetRemove": "0.15s long press (requires hook)"
+    }
+  },
+  "screens": [
+    {
+      "id": "desktop",
+      "title": "桌面",
+      "purpose": "产品主入口；不打开 App 就能记录和查看",
+      "keyElements": [
+        "身高 4×2 大卡：175.0 厘米、7 天条带、去记录",
+        "4 个 1×1 方块：俯卧撑 / 蹲马步 / 引体向上 / 自定义",
+        "计数 4×2 大卡：项目胶囊、33 分钟、7 天矩阵"
+      ],
+      "interactions": [
+        "点 1×1 方块本体 → 加一组",
+        "长按 1×1 方块 0.15s → 减一组（需模块）",
+        "点方块边缘留白 → 打开 App",
+        "点身高卡去记录 → 身高弹窗",
+        "点计数大卡项目胶囊 → 切换项目"
+      ],
+      "states": ["未连接同步", "已连接同步", "同步服务被杀", "目标达成金色"],
+      "assets": ["screens/05-desktop-widgets.png", "prototype/phone-desktop.png", "promo/widgets-stack.png"],
+      "notes": "桌面是产品，不是附属功能。视频应优先拍桌面。"
+    },
+    {
+      "id": "today",
+      "title": "今天",
+      "purpose": "看今天累计与本周 7 天",
+      "keyElements": [
+        "日期行：今天是 11 月 22 日",
+        "身高卡：175.0 厘米",
+        "4 张计数卡：72 / 33 / 12 / 20",
+        "右侧加一组按钮"
+      ],
+      "interactions": [
+        "点加一组 → 数字 +1 组、飘字、音效、震动",
+        "点去记录 → 身高弹窗",
+        "点身高卡主体 → 趋势页（身高）",
+        "按住日期 0.7s → 隐藏设置"
+      ],
+      "states": ["正常", "身高未记录：-- 厘米 / 今天还没记录", "目标达成金色"],
+      "assets": ["screens/01-today.png", "prototype/phone-app-home.png", "cards/card-height.png"],
+      "notes": "数字与演示数据保持一致：175.0、72、33、12、20。"
+    },
+    {
+      "id": "trend",
+      "title": "趋势",
+      "purpose": "看 30 天走势与逐日明细",
+      "keyElements": [
+        "项目分段：身高 / 俯卧撑 / 蹲马步 / 引体向上 / 自定义",
+        "三栏：最高 40、7 天变化 -2、最低 2",
+        "30 天折线 + 面积渐变 + 末点高亮",
+        "逐日明细：11/22 6、11/21 40、11/20 6…"
+      ],
+      "interactions": [
+        "点分段 → 切换项目",
+        "图表区横滑 → 切换上一个/下一个项目",
+        "点返回 → 今天页"
+      ],
+      "states": ["俯卧撑默认选中", "其他项目", "空数据"],
+      "assets": ["screens/02-trend.png", "prototype/phone-trend.png"],
+      "notes": "默认选中俯卧撑，和 1.2.12 真机截图一致。"
+    },
+    {
+      "id": "projects",
+      "title": "项目",
+      "purpose": "管理每组数量、累计、目标、纵轴范围",
+      "keyElements": [
+        "身高：31 天 / 172～183 厘米",
+        "俯卧撑：12 个每组 / 累计 2,292 / 0～32 / 10,000",
+        "蹲马步：11 分钟每组 / 累计 1,485 / 0～32 / 10,000",
+        "引体向上：12 个每组 / 累计 1,308 / 0～32 / 10,000",
+        "自定义：10 个每组 / 累计 1,460 / 0～32 / 10,000"
+      ],
+      "interactions": [
+        "点计数卡 → 编辑弹窗",
+        "自动保存",
+        "清空 → 二次确认，记截止时间",
+        "长按标题 0.7s → 设置"
+      ],
+      "states": ["正常", "目标达成金色", "清空确认"],
+      "assets": ["screens/03-projects.png", "prototype/phone-projects.png", "cards/card-project-height.png", "cards/card-project-pushup.png"],
+      "notes": "项目页是管理页，不是主视觉；视频里只做 1～2 秒带过。"
+    },
+    {
+      "id": "settings",
+      "title": "设置（隐藏页）",
+      "purpose": "桌面长按接管 + 同步服务",
+      "keyElements": [
+        "桌面长按接管卡：已接上、开关、说明",
+        "同步服务卡：已连接、IP:端口、右箭头",
+        "版本：日刻 1.2.12 · 预览版"
+      ],
+      "interactions": [
+        "开关 → 立刻恢复/接管长按",
+        "点同步卡 → 同步弹窗"
+      ],
+      "states": ["已接上/该复测了/未接上", "未设置/待连接/已连接/连不上"],
+      "assets": ["screens/04-settings.png", "prototype/phone-settings-connected.png", "cards/card-settings-hook.png", "cards/card-settings-sync.png"],
+      "notes": "入口是隐藏的：项目页标题长按 0.7s。"
+    },
+    {
+      "id": "sync-sheet",
+      "title": "同步服务弹窗",
+      "purpose": "填 IP、端口、访问令牌",
+      "keyElements": ["IP/主机", "端口 8787", "访问令牌", "保存并连接", "说明：不填也能用"],
+      "interactions": ["保存 → 校验 → 回写卡片状态", "点遮罩关闭"],
+      "states": ["空", "校验失败", "保存成功已连接"],
+      "assets": ["cards/sheet-sync.png"],
+      "notes": "示意 IP 是 192.168.1.50，不是实际地址；公开素材不暴露真实 IP/Token。"
+    },
+    {
+      "id": "height-sheet",
+      "title": "记录身高弹窗",
+      "purpose": "输入 0～227 厘米，可 1 位小数",
+      "keyElements": ["输入框", "厘米单位", "保存/取消", "键盘避让"],
+      "interactions": ["保存 → 回写身高卡", "非法输入 → 错误提示"],
+      "states": ["空", "合法", "非法"],
+      "assets": ["cards/card-height.png"],
+      "notes": "弹窗在键盘上方居中，不裁背景身高卡。"
+    },
+    {
+      "id": "edit-sheet",
+      "title": "项目编辑弹窗",
+      "purpose": "改每组数量、目标、纵轴上限",
+      "keyElements": ["每组数量", "目标", "纵轴上限", "清空"],
+      "interactions": ["自动保存", "清空二次确认"],
+      "states": ["正常", "清空确认", "保存成功"],
+      "assets": [],
+      "notes": "视频里不必展示所有字段；用 1 个镜头带过即可。"
+    }
+  ],
+  "assetMap": {
+    "today": "screens/01-today.png",
+    "trend": "screens/02-trend.png",
+    "projects": "screens/03-projects.png",
+    "settings": "screens/04-settings.png",
+    "desktop": "screens/05-desktop-widgets.png",
+    "keyVisual16x9": "promo/key-visual-16x9.png",
+    "keyVisual9x16": "promo/key-visual-9x16.png",
+    "icon": "brand/daytally-icon-1024.png"
+  }
+}

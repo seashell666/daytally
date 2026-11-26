@@ -22,8 +22,8 @@ android {
         applicationId "com.beike.daytally"
         minSdk 26
         targetSdk 34
-        versionCode 15
-        versionName "1.2.12"
+        versionCode 21
+        versionName "1.4.1"
         resourceConfigurations += ['zh']
     }
 
@@ -74,4 +74,7 @@ dependencies {
 
     // Xposed/Vector API 只在编译期用到，运行期由框架提供（libs 里是自建的最小 stub）
     compileOnly files('libs/xposed-api-stub.jar')
+
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20231013'
 }

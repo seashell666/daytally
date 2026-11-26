@@ -1,0 +1,77 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+// 签名密钥不进仓库：本地用工程根目录的 keystore.properties 提供。
+// 该文件已写入 .gitignore；缺失时 release 自动退回 debug 签名，保证任何人 clone 都能构建。
+def KEYSTORE_PROPS = rootProject.file("keystore.properties")
+def KSTORE = new Properties()
+if (KEYSTORE_PROPS.exists()) {
+    KSTORE.load(new FileInputStream(KEYSTORE_PROPS))
+}
+
+// 局域网同步地址与 Token 不再编译进 APK：公开包也能在设置页里自己填。
+// 这样 GitHub Release 只发一个公开包，不需要再区分“本地同步版”。
+
+android {
+    namespace 'com.beike.daytally'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.beike.daytally"
+        minSdk 26
+        targetSdk 34
+        versionCode 15
+        versionName "1.2.12"
+        resourceConfigurations += ['zh']
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    signingConfigs {
+        release {
+            if (KEYSTORE_PROPS.exists()) {
+                storeFile rootProject.file(KSTORE['storeFile'])
+                storePassword KSTORE['storePassword']
+                keyAlias KSTORE['keyAlias']
+                keyPassword KSTORE['keyPassword']
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            shrinkResources false
+            signingConfig KEYSTORE_PROPS.exists() ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core-ktx:1.12.0'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.11.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.0.1'
+    implementation 'androidx.recyclerview:recyclerview:1.1.0'
+
+    // Xposed/Vector API 只在编译期用到，运行期由框架提供（libs 里是自建的最小 stub）
+    compileOnly files('libs/xposed-api-stub.jar')
+}
