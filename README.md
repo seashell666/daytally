@@ -16,7 +16,7 @@
 | --- | --- | --- |
 | ![总览](docs/screenshots/pc-overview-1.4.1.png) | ![今天](docs/screenshots/pc-today-1.4.1.png) | ![趋势](docs/screenshots/pc-trend-1.4.1.png) |
 
-当前开发版本 **1.4.1**（2026-11-26）。安装包在本仓库 `DailyScale/dist/日刻-1.4.1.apk`，电脑端在 `PC/日刻数据中台-1.4.1.exe`；发布页见 [Releases · v1.4.1](https://github.com/seashell666/daytally/releases/tag/v1.4.1)。
+当前开发版本 **1.4.1**（2026-11-26）。手机装包、电脑端 EXE 和完整交付包都在 [Releases · v1.4.1](https://github.com/seashell666/daytally/releases/tag/v1.4.1) 下载；仓库里放源码：手机 `DailyScale/`、电脑 `PC/source/`、服务端 `server/`。
 
 ## 它为什么存在
 
@@ -357,7 +357,7 @@ docker compose start
 
 ## 电脑端（Windows 数据中台）
 
-手机只负责记，电脑负责看全。`PC/日刻数据中台-1.4.1.exe` 是一个双击就能跑的绿色程序，不装任何运行库，数据全部从你自己的树莓派上取，不经过任何外部服务器。
+手机只负责记，电脑负责看全。`日刻数据中台-1.4.1.exe`（Release 里的 `daytally-desktop-v1.4.1.exe`）是一个双击就能跑的绿色程序，不装任何运行库，数据全部从你自己的树莓派上取，不经过任何外部服务器。
 
 ### 第一次用
 
