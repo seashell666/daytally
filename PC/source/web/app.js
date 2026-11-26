@@ -3,8 +3,8 @@
   "use strict";
 
   const ORDER = ["muscle", "push", "horse", "pullup", "custom"];
-  // 树莓派同步口令：用户要求以后在这台电脑上自动填好，不再每次手输。
-  const DEFAULT_TOKEN = "6bed6b8aaec0426ea97bb754defde550";
+  // 公开版本不带任何真实口令：口令由用户第一次在「连接设置」里填，存在本机 config.json。
+  const DEFAULT_TOKEN = "";
   const FALLBACK = {
     muscle: { name: "肌肉重量", unit: "公斤" },
     push: { name: "俯卧撑", unit: "个" },
@@ -1304,9 +1304,9 @@
     openModal(`<div class="modal-head"><div class="modal-icon">⌁</div><div><h2>连接树莓派</h2><p class="m-sub">日刻的数据存在树莓派里。填上它的地址和口令，电脑这边就能读数据、改项目、清记录。</p></div><button class="modal-close" data-action="close-modal" aria-label="关闭">×</button></div>
       <form id="settings-form">
         <div class="form-grid">
-          <div class="field"><label for="set-host">树莓派 IP / 主机</label><input id="set-host" name="host" value="${esc(cfg.host || "192.168.0.27")}" placeholder="192.168.0.27" autocomplete="off"><div class="hint">只填 IP 或主机名，不用带 http://</div></div>
+          <div class="field"><label for="set-host">树莓派 IP / 主机</label><input id="set-host" name="host" value="${esc(cfg.host || "")}" placeholder="192.168.1.50" autocomplete="off"><div class="hint">只填 IP 或主机名，不用带 http://</div></div>
           <div class="field"><label for="set-port">端口</label><input id="set-port" name="port" type="number" min="1" max="65535" value="${esc(cfg.port || 8787)}"><div class="hint">Docker 映射出来的端口，默认 8787</div></div>
-          <div class="field full"><label for="set-token">访问口令（Token）</label><input id="set-token" name="token" type="password" value="${esc(cfg.token || DEFAULT_TOKEN)}" placeholder="和树莓派同步服务里设置的一致" autocomplete="off"><div class="hint">这台电脑以后会自动填好；保存在本机 %APPDATA%\\DayTallyDesktop\\config.json，不会写进网页。</div></div>
+          <div class="field full"><label for="set-token">访问口令（Token）</label><input id="set-token" name="token" type="password" value="${esc(cfg.token || DEFAULT_TOKEN)}" placeholder="和树莓派同步服务里设置的一致" autocomplete="off"><div class="hint">填一次就存在本机 %APPDATA%\\DayTallyDesktop\\config.json，下次打开自动填好，不会写进网页。</div></div>
         </div>
         <div class="test-result" id="test-result">${state.loadError ? esc(state.loadError) : "还没有测试"}</div>
         <div class="modal-actions"><button class="btn btn-ghost" type="button" data-action="test">测试连接</button><button class="btn btn-primary" type="submit">保存并连接</button></div>
@@ -1319,6 +1319,7 @@
     const token = form.token.value.trim() || DEFAULT_TOKEN;
     if (!host) throw new Error("先填树莓派 IP");
     if (!port || port < 1 || port > 65535) throw new Error("端口不对");
+    if (!token) throw new Error("访问口令不能为空");
     const cfg = await api("/api/config", { method: "POST", body: JSON.stringify({ host, port, token }) });
     state.config = cfg;
     state.notes = cfg.notes || [];

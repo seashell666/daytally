@@ -35,9 +35,10 @@ CONFIG_DIR = Path(os.environ.get("APPDATA", Path.home())) / "DayTallyDesktop"
 CONFIG_PATH = CONFIG_DIR / "config.json"
 CACHE_PATH = CONFIG_DIR / "snapshot-cache.json"
 LOG_PATH = CONFIG_DIR / "desktop.log"
-DEFAULT_BASE = "http://192.168.0.27:8787"
-# 贝壳要求这台电脑以后自动带上同步口令，不再反复手输。
-DEFAULT_TOKEN = "6bed6b8aaec0426ea97bb754defde550"
+DEFAULT_BASE = os.environ.get("DAYTALLY_BASE_URL", "").strip()
+# 公开仓库与发布包不带任何真实地址/口令：只在第一次上手时由用户在「连接设置」里填。
+# 需要免配置启动时，用环境变量 DAYTALLY_BASE_URL / DAYTALLY_TOKEN 或 --base-url / --token 传入。
+DEFAULT_TOKEN = os.environ.get("DAYTALLY_TOKEN", "").strip()
 # height 是旧版身高历史的兼容键，只用于 reset/清空，不在 PC 界面展示；
 # muscle 是新版肌肉重量（公斤），界面 ORDER 的第一位已经切换成它。
 METRICS = ("height", "muscle", "push", "horse", "pullup", "custom")
@@ -74,9 +75,9 @@ def normalize_base(value: str) -> str:
 def split_base(base: str) -> tuple[str, int]:
     base = normalize_base(base)
     if not base:
-        return "192.168.0.27", 8787
+        return "", 8787
     parsed = urlparse(base)
-    host = parsed.hostname or "192.168.0.27"
+    host = parsed.hostname or ""
     port = parsed.port or 8787
     return host, port
 
@@ -110,8 +111,6 @@ class ConfigStore:
                 if isinstance(raw, dict):
                     for key, value in default.items():
                         raw.setdefault(key, value)
-                    if not str(raw.get("token") or "").strip():
-                        raw["token"] = DEFAULT_TOKEN
                     raw["baseUrl"] = normalize_base(str(raw.get("baseUrl") or DEFAULT_BASE))
                     raw["notes"] = raw.get("notes") if isinstance(raw.get("notes"), list) else []
                     return raw
@@ -342,7 +341,7 @@ class AppState:
         if not base:
             raise ValueError("服务地址不能为空")
         self.store.set("baseUrl", base)
-        self.store.set("token", (token or "").strip() or DEFAULT_TOKEN)
+        self.store.set("token", (token or "").strip())
         return self.config_for_ui()
 
     def save_project(self, metric: str, config: dict) -> dict:
